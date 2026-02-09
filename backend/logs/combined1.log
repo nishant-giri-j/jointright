@@ -10263,3 +10263,12 @@
 {"level":"info","message":"Server running on port 5000","service":"jointright-backend","timestamp":"2025-12-30 10:54:35"}
 {"level":"info","message":"✅ MongoDB Connected: 127.0.0.1","service":"jointright-backend","timestamp":"2025-12-30 10:54:35"}
 {"level":"info","message":"MongoDB connected","service":"jointright-backend","timestamp":"2025-12-30 10:54:35"}
+{"level":"info","message":"Server running on port 5000","service":"jointright-backend","timestamp":"2025-12-30 12:07:25"}
+{"level":"info","message":"✅ MongoDB Connected: 127.0.0.1","service":"jointright-backend","timestamp":"2025-12-30 12:07:25"}
+{"level":"info","message":"MongoDB connected","service":"jointright-backend","timestamp":"2025-12-30 12:07:25"}
+{"level":"warn","message":"Login attempt with non-existent email: girinb@rkncec.edu from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2025-12-30 12:08:13"}
+{"level":"info","message":"Successful login for: girinb@rknec.edu from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2025-12-30 12:08:29"}
+{"level":"info","message":"Socket connected: vUEsLnoNgW2lVJWaAAAB","service":"jointright-backend","timestamp":"2025-12-30 12:08:34"}
+{"level":"info","message":"Socket disconnected: vUEsLnoNgW2lVJWaAAAB","service":"jointright-backend","timestamp":"2025-12-30 12:08:34"}
+{"level":"info","message":"Socket connected: 05QoxArIvRUsMezVAAAD","service":"jointright-backend","timestamp":"2025-12-30 12:08:54"}
+{"level":"info","message":"Socket disconnected: 05QoxArIvRUsMezVAAAD","service":"jointright-backend","timestamp":"2025-12-30 12:08:57"}
