@@ -40,13 +40,12 @@ module.exports = {
         }),
       ];
 
-      // Ignore source map warnings for node_modules
-      if (env === 'development') {
-        webpackConfig.ignoreWarnings = [
-          /Failed to parse source map/,
-          /Can't resolve 'process\/browser'/,
-        ];
-      }
+      // Ignore source map warnings for node_modules in all environments
+      webpackConfig.ignoreWarnings = [
+        ...(webpackConfig.ignoreWarnings || []),
+        /Failed to parse source map/,
+        /Can't resolve 'process\/browser'/,
+      ];
 
       return webpackConfig;
     },
