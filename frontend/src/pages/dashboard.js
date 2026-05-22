@@ -486,11 +486,17 @@ const Dashboard = () => {
       const sessionContext = sessionManager.createUserContext(userEmail, 'meeting-creation');
       
       const apiUrl = buildApiUrl("/api/meetings/create");
+
+      // TIMEZONE FIX: datetime-local input gives "YYYY-MM-DDTHH:mm" with NO timezone.
+      // new Date("YYYY-MM-DDTHH:mm") treats it as LOCAL time in browsers, so
+      // calling .toISOString() correctly converts local → UTC for the backend.
+      const scheduledAtUTC = scheduledAt ? new Date(scheduledAt).toISOString() : scheduledAt;
+
       const requestBody = {
         title: title.trim(), 
         password: password.trim(), 
         description: description ? description.trim() : '',
-        scheduledAt, 
+        scheduledAt: scheduledAtUTC,
         creator: userEmail,
         settings,
         sessionId: sessionManager.sessionId // Include session ID in request
@@ -598,17 +604,23 @@ const Dashboard = () => {
     setShareModalData({ isOpen: true, meeting });
   };
 
+  // Helper: convert a Date to the "YYYY-MM-DDTHH:mm" local format required by datetime-local inputs
+  const toLocalDatetimeString = (date) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+
   const handleCreateMeeting = (selectedDate = null) => {
     if (selectedDate) {
-      // Pre-fill the date if called from calendar
+      // Pre-fill the date if called from calendar — use LOCAL time, not UTC
       const dateTime = new Date(selectedDate);
       dateTime.setHours(new Date().getHours() + 1, 0, 0, 0); // Set to next hour
-      setScheduledAt(dateTime.toISOString().slice(0, 16));
+      setScheduledAt(toLocalDatetimeString(dateTime));
     } else {
-      // Set default time to 1 hour from now if no date provided
+      // Set default time to 1 hour from now if no date provided — use LOCAL time
       const defaultTime = new Date();
       defaultTime.setHours(defaultTime.getHours() + 1, 0, 0, 0);
-      setScheduledAt(defaultTime.toISOString().slice(0, 16));
+      setScheduledAt(toLocalDatetimeString(defaultTime));
     }
     setShowCreateModal(true);
   };
