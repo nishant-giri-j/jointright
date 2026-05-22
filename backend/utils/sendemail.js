@@ -7,6 +7,9 @@ export const sendEmail = async (to, subject, content, isHtml = true) => {
       user: process.env.GMAIL_USER || process.env.EMAIL,
       pass: process.env.GMAIL_APP_PASSWORD || process.env.PASSWORD
     },
+    connectionTimeout: 5000,
+    socketTimeout: 5000,
+    greetingTimeout: 5000
   });
 
   const mailOptions = {
