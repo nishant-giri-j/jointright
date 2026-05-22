@@ -183,11 +183,16 @@ const admittedUsersMemory = new Map();
 
 const updateHostsWaitingList = (roomId) => {
   const waitingList = Array.from(waitingRoomsMemory.get(roomId)?.values() || []);
-  const hosts = Array.from(activeRooms.get(roomId)?.values() || []).filter(p => p.isHost);
+  
+  // Robust lookup: scan all connected sockets in this room that are hosts
+  const allSockets = Array.from(io.sockets.sockets.values());
+  const hosts = allSockets.filter(s => s.roomId === roomId && s.isHost);
+  
+  logger.info(`Sending waiting room update to ${hosts.length} hosts in room ${roomId}. Waiting count: ${waitingList.length}`);
   
   for (const host of hosts) {
-    io.to(host.socketId).emit("waiting-participants-update", waitingList);
-    io.to(host.socketId).emit("waiting-participants-list", waitingList);
+    io.to(host.id).emit("waiting-participants-update", waitingList);
+    io.to(host.id).emit("waiting-participants-list", waitingList);
   }
 };
 
@@ -218,7 +223,7 @@ io.on("connection", (socket) => {
       }
 
       // Check if meeting is locked (non-hosts cannot join locked meetings)
-      const roomMeta = activeRooms.get(roomId);
+      let roomMeta = activeRooms.get(roomId);
       if (roomMeta?._locked) {
         const userDocForLock = await User.findOne({ $or: [{ email: userId }, { email: userName }] });
         const isHostCheck = userDocForLock && (meeting.creator === userDocForLock.email || (meeting.hostId && meeting.hostId.equals(userDocForLock._id)));
@@ -262,23 +267,27 @@ io.on("connection", (socket) => {
       }
       socket.cyberScore = cyberScoreData;
 
-      // Send host status to the socket
-      socket.emit("host-status", {
-        isHost,
-        meetingStarted: meeting.status === "ongoing",
-        isAdmitted: isHost || !meeting.hostControls?.requireHostApproval
-      });
-
-      // 2. Handle Waiting Room Logic
-      const requireApproval = meeting.hostControls?.requireHostApproval;
-      
       // Initialize room memory
       if (!activeRooms.has(roomId)) {
-        activeRooms.set(roomId, new Map());
+        const newRoomMap = new Map();
+        newRoomMap._security = { allowScreenShare: true, allowChat: true, allowUnmute: true };
+        activeRooms.set(roomId, newRoomMap);
       }
       if (!waitingRoomsMemory.has(roomId)) {
         waitingRoomsMemory.set(roomId, new Map());
       }
+
+      // Send host status to the socket
+      roomMeta = activeRooms.get(roomId);
+      socket.emit("host-status", {
+        isHost,
+        meetingStarted: meeting.status === "ongoing",
+        isAdmitted: isHost || !meeting.hostControls?.requireHostApproval,
+        security: roomMeta?._security || { allowScreenShare: true, allowChat: true, allowUnmute: true }
+      });
+
+      // 2. Handle Waiting Room Logic
+      const requireApproval = meeting.hostControls?.requireHostApproval;
       if (!admittedUsersMemory.has(roomId)) {
         admittedUsersMemory.set(roomId, new Set());
       }
@@ -503,6 +512,18 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("meeting-unlocked", { hostName: socket.userName });
     socket.emit("meeting-lock-confirmed", { locked: false });
     logger.info(`Host ${socket.userName} unlocked meeting ${roomId}`);
+  });
+
+  // Toggle Host Security Permissions
+  socket.on("host-toggle-security", ({ roomId, permissions }) => {
+    if (!socket.isHost) return;
+    const room = activeRooms.get(roomId);
+    if (room) {
+      room._security = { ...room._security, ...permissions };
+      socket.to(roomId).emit("host-security-update", { security: room._security });
+      socket.emit("host-security-confirmed", { security: room._security });
+      logger.info(`Host ${socket.userName} updated security permissions in room ${roomId}:`, permissions);
+    }
   });
 
   // Make Co-Host

@@ -307,6 +307,29 @@ const EnhancedLiveMeeting = ({
     fetchDetails();
   }, [roomId]);
 
+  // Passcode verification logic
+  useEffect(() => {
+    if (!meetingDetails) return;
+    
+    const isRoomHost = isHost || meetingDetails.creator === user?.email;
+    const meetingPassword = meetingDetails.password;
+    
+    if (!meetingPassword || isRoomHost) {
+      setIsPasscodeVerified(true);
+      return;
+    }
+    
+    // Check various bypass methods
+    const queryPwd = new URLSearchParams(window.location.search).get('pwd');
+    const statePwd = location.state?.meetingData?.password;
+    const cachedPwd = localStorage.getItem(`verified_passcode_${roomId}`);
+    
+    if (queryPwd === meetingPassword || statePwd === meetingPassword || cachedPwd === meetingPassword) {
+      setIsPasscodeVerified(true);
+      localStorage.setItem(`verified_passcode_${roomId}`, meetingPassword);
+    }
+  }, [meetingDetails, isHost, user, location.state, roomId]);
+
   // UI State
   const [viewMode, setViewMode] = useState('speaker');
   const [showChat, setShowChat] = useState(false);
@@ -372,6 +395,13 @@ const EnhancedLiveMeeting = ({
 
   // File sharing in chat
   const [sharedFiles, setSharedFiles] = useState([]);
+
+  // Passcode-Gate and Security state
+  const [isPasscodeVerified, setIsPasscodeVerified] = useState(false);
+  const [enteredPasscode, setEnteredPasscode] = useState('');
+  const [passcodeError, setPasscodeError] = useState('');
+  const [showSecurityModal, setShowSecurityModal] = useState(false);
+  const [roomSecurity, setRoomSecurity] = useState({ allowScreenShare: true, allowChat: true, allowUnmute: true });
   
   // Current user information for rating
   const currentUser = {
@@ -396,9 +426,10 @@ const EnhancedLiveMeeting = ({
 
   // Initialize connection
   useEffect(() => {
+    if (!isPasscodeVerified) return;
     initializeConnection();
     return cleanup;
-  }, [roomId, userName]);
+  }, [roomId, userName, isPasscodeVerified]);
 
   // Enhanced connection initialization - CONNECTS SOCKET FIRST WITHOUT ASYNC CAMERA BLOCK
   const initializeConnection = async () => {
@@ -518,6 +549,10 @@ const EnhancedLiveMeeting = ({
       const admitted = data.isHost || data.isAdmitted;
       setIsAdmitted(admitted);
       
+      if (data.security) {
+        setRoomSecurity(data.security);
+      }
+      
       if (data.isHost) {
         console.log('You are the host of this meeting');
         setMeetingState('active');
@@ -530,6 +565,20 @@ const EnhancedLiveMeeting = ({
         } else {
           startMediaAndWebRTC();
         }
+      }
+    });
+
+    socket.on("host-security-update", (data) => {
+      if (data.security) {
+        setRoomSecurity(data.security);
+        showNotification("Meeting security permissions have been updated by the host.", "info", 4000);
+      }
+    });
+
+    socket.on("host-security-confirmed", (data) => {
+      if (data.security) {
+        setRoomSecurity(data.security);
+        showNotification("Security permissions successfully applied room-wide.", "success", 4000);
       }
     });
 
@@ -741,6 +790,18 @@ const EnhancedLiveMeeting = ({
       }, 6000);
     });
 
+    socket.on("meeting-ended-by-host", (data) => {
+      showNotification(`The meeting has been ended by the host (${data.hostName || 'Host'}).`, 'info', 5000);
+      cleanup();
+      setTimeout(() => {
+        if (onClose) {
+          onClose();
+        } else {
+          navigate('/dashboard');
+        }
+      }, 2000);
+    });
+
     socket.on("host-muted-all", (data) => {
       if (userStream) {
         const audioTrack = userStream.getAudioTracks()[0];
@@ -925,6 +986,23 @@ const EnhancedLiveMeeting = ({
     return peer;
   }, []);
 
+  const handlePasscodeSubmit = (e) => {
+    e.preventDefault();
+    if (!enteredPasscode) {
+      setPasscodeError("Passcode is required");
+      return;
+    }
+    
+    if (enteredPasscode === meetingDetails?.password) {
+      setIsPasscodeVerified(true);
+      setPasscodeError('');
+      localStorage.setItem(`verified_passcode_${roomId}`, enteredPasscode);
+      showNotification("Passcode verified successfully! Joining meeting...", "success");
+    } else {
+      setPasscodeError("Invalid passcode. Please try again.");
+    }
+  };
+
   // FIX: Guard against null stream; clear host-muted flag on manual unmute
   const toggleAudio = useCallback(() => {
     if (!userStream) {
@@ -936,31 +1014,79 @@ const EnhancedLiveMeeting = ({
       showNotification('No microphone found. Please connect one.', 'warning');
       return;
     }
+    
+    // Block unmuting if restricted by host
+    const isUnmuteRestricted = !isHost && !roomSecurity.allowUnmute;
+    if (!isAudioOn && isUnmuteRestricted) {
+      showNotification('The host has disabled participant unmuting.', 'warning');
+      return;
+    }
+
     const newState = !isAudioOn;
     audioTrack.enabled = newState;
     setIsAudioOn(newState);
     if (newState) setHostMutedAudio(false); // clear host-muted flag when manually unmuting
     socketRef.current?.emit('toggle-audio', newState);
     if (navigator.vibrate) navigator.vibrate(50);
-  }, [isAudioOn, userStream, showNotification]);
+  }, [isAudioOn, userStream, showNotification, isHost, roomSecurity.allowUnmute]);
 
-  const toggleVideo = useCallback(() => {
-    if (!userStream) {
-      showNotification('No camera stream. Check your device permissions.', 'warning');
-      return;
+  const toggleVideo = useCallback(async () => {
+    try {
+      if (isVideoOn) {
+        // Turning video OFF: Stop all video tracks to release camera hardware completely
+        if (userStream) {
+          userStream.getVideoTracks().forEach(track => {
+            track.stop();
+            userStream.removeTrack(track);
+          });
+        }
+        setIsVideoOn(false);
+        socketRef.current?.emit('toggle-video', false);
+        showNotification('Camera stopped, hardware released.', 'info', 2000);
+      } else {
+        // Turning video ON: Obtain fresh video track from hardware
+        const constraints = {
+          video: selectedCameraId ? { deviceId: { exact: selectedCameraId } } : {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: 'user',
+            frameRate: { ideal: 30 }
+          }
+        };
+        const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+        const newVideoTrack = newStream.getVideoTracks()[0];
+        
+        if (newVideoTrack && userStream) {
+          userStream.addTrack(newVideoTrack);
+          
+          // Replace track for all active peer connections dynamically
+          peersRef.current.forEach(({ peer }) => {
+            if (peer && !peer.destroyed) {
+              try {
+                const senders = peer._pc.getSenders();
+                const sender = senders.find(s => s.track && s.track.kind === 'video');
+                if (sender) {
+                  sender.replaceTrack(newVideoTrack);
+                }
+              } catch (peerErr) {
+                console.warn("Could not replace track for peer:", peerErr);
+              }
+            }
+          });
+        }
+        
+        setIsVideoOn(true);
+        setHostMutedVideo(false);
+        socketRef.current?.emit('toggle-video', true);
+        showNotification('Camera started.', 'info', 2000);
+      }
+      
+      if (navigator.vibrate) navigator.vibrate(50);
+    } catch (err) {
+      console.error("Error toggling video track:", err);
+      showNotification("Could not start camera. Make sure it isn't in use by another app.", "error");
     }
-    const videoTrack = userStream.getVideoTracks()[0];
-    if (!videoTrack) {
-      showNotification('No camera found. Please connect one.', 'warning');
-      return;
-    }
-    const newState = !isVideoOn;
-    videoTrack.enabled = newState;
-    setIsVideoOn(newState);
-    if (newState) setHostMutedVideo(false); // clear host-muted flag when manually re-enabling
-    socketRef.current?.emit('toggle-video', newState);
-    if (navigator.vibrate) navigator.vibrate(50);
-  }, [isVideoOn, userStream, showNotification]);
+  }, [isVideoOn, userStream, selectedCameraId, showNotification]);
 
   // Canvas composition for dual-stream (screen + camera)
   const createCompositeStream = useCallback((screenStream, cameraStream) => {
@@ -1703,12 +1829,32 @@ const EnhancedLiveMeeting = ({
     }
   }, [onClose, navigate, cleanup]);
 
+  const toggleSecurityPermission = useCallback((key) => {
+    if (!isHost || !socketRef.current) return;
+    const newPerm = !roomSecurity[key];
+    const updated = { ...roomSecurity, [key]: newPerm };
+    setRoomSecurity(updated);
+    socketRef.current.emit("host-toggle-security", { roomId, permissions: { [key]: newPerm } });
+    if (navigator.vibrate) navigator.vibrate(40);
+  }, [isHost, roomSecurity, roomId]);
+
   const endMeetingForAll = useCallback(() => {
     if (!isHost || !socketRef.current) return;
     if (window.confirm("Are you sure you want to end this meeting for everyone?")) {
       socketRef.current.emit("end-meeting-for-all", { roomId });
+      setShowEndModal(false);
+      
+      // Local fallback cleanup and redirect to guarantee the button never fails
+      setTimeout(() => {
+        cleanup();
+        if (onClose) {
+          onClose();
+        } else {
+          navigate('/dashboard');
+        }
+      }, 500);
     }
-  }, [isHost, roomId]);
+  }, [isHost, roomId, cleanup, onClose, navigate]);
 
   // Cyber Score and Rating Functions
   const openRatingModal = useCallback((participant) => {
@@ -1960,6 +2106,54 @@ const EnhancedLiveMeeting = ({
         <h2>Authentication Required</h2>
         <p>You must be logged in to join meetings.</p>
         <button onClick={() => navigate('/login')}>Login</button>
+      </div>
+    );
+  }
+
+  // Passcode gate UI (Zoom Mode)
+  if (!isPasscodeVerified && meetingDetails?.password) {
+    return (
+      <div className="live-meeting-container passcode-gate">
+        <div className="passcode-gate-content glassmorphic-card">
+          <div className="passcode-header">
+            <div className="passcode-icon-badge">
+              <FaLock className="lock-badge-icon" />
+            </div>
+            <h2>Enter Meeting Passcode</h2>
+            <p className="passcode-subtitle">This meeting is passcode-protected. Please enter the correct passcode to enter the waiting room or join the session.</p>
+          </div>
+          
+          <form onSubmit={handlePasscodeSubmit} className="passcode-form">
+            <div className="input-group">
+              <input
+                type="password"
+                placeholder="Passcode"
+                value={enteredPasscode}
+                onChange={(e) => setEnteredPasscode(e.target.value)}
+                className={`passcode-input ${passcodeError ? 'input-error' : ''}`}
+                autoFocus
+                required
+              />
+              {passcodeError && <span className="error-message-alert">{passcodeError}</span>}
+            </div>
+            
+            <div className="passcode-actions">
+              <button 
+                type="button" 
+                className="control-btn secondary"
+                onClick={() => navigate('/dashboard')}
+              >
+                Go to Dashboard
+              </button>
+              <button 
+                type="submit" 
+                className="control-btn primary"
+              >
+                Verify & Join
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     );
   }
@@ -2279,18 +2473,38 @@ const EnhancedLiveMeeting = ({
         </div>
 
         <div className="controls-center">
-          {supportsScreenShare && (
-            <div className="control-group">
-              <button 
-                className={`control-btn secondary ${isScreenSharing ? 'active' : ''}`}
-                onClick={isScreenSharing ? stopScreenShare : startScreenShare}
-                title={`${isScreenSharing ? 'Stop' : 'Start'} Screen Share (S)`}
-                disabled={!userStream}
-              >
-                <FaDesktop />
-                <span>{isScreenSharing ? 'Stop Share' : 'Share'}</span>
-              </button>
-            </div>
+          {supportsScreenShare && (() => {
+            const isScreenShareRestricted = !isHost && !roomSecurity.allowScreenShare;
+            return (
+              <div className="control-group">
+                <button 
+                  className={`control-btn secondary ${isScreenSharing ? 'active' : ''} ${isScreenShareRestricted ? 'restricted' : ''}`}
+                  onClick={() => {
+                    if (isScreenShareRestricted) {
+                      showNotification("Screen sharing has been disabled by the host.", "warning");
+                      return;
+                    }
+                    isScreenSharing ? stopScreenShare() : startScreenShare();
+                  }}
+                  title={isScreenShareRestricted ? 'Screen Share disabled by host' : `${isScreenSharing ? 'Stop' : 'Start'} Screen Share (S)`}
+                  disabled={(!userStream && !isScreenShareRestricted) || isSwitchingDevice}
+                >
+                  {isScreenShareRestricted ? <FaLock style={{ color: 'var(--accent-red)' }} /> : <FaDesktop />}
+                  <span>{isScreenSharing ? 'Stop Share' : 'Share'}</span>
+                </button>
+              </div>
+            );
+          })()}
+
+          {isHost && (
+            <button 
+              className={`control-btn secondary ${showSecurityModal ? 'active' : ''}`}
+              onClick={() => setShowSecurityModal(!showSecurityModal)}
+              title="Security Center"
+            >
+              <FaShieldAlt style={{ color: 'var(--accent-blue)' }} />
+              <span>Security</span>
+            </button>
           )}
 
           <button 
@@ -2610,37 +2824,49 @@ const EnhancedLiveMeeting = ({
             )}
           </div>
           
-          <div className="chat-input-container">
-            <div className="chat-input-row">
-              <input
-                type="text"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') sendMessage();
-                  handleTyping();
-                }}
-                placeholder="Type a message..."
-                className="chat-input"
-                maxLength={500}
-              />
-              <label className="file-input-btn" title="Share file (Max 10MB)">
-                <FaFile />
-                <input 
-                  type="file" 
-                  onChange={handleFileUpload}
-                  style={{display: 'none'}}
-                />
-              </label>
-              <button 
-                className="send-btn" 
-                onClick={sendMessage}
-                disabled={!message.trim()}
-              >
-                <FaPaperPlane />
-              </button>
-            </div>
-          </div>
+          {(() => {
+            const isChatRestricted = !isHost && !roomSecurity.allowChat;
+            return (
+              <div className="chat-input-container">
+                <div className="chat-input-row">
+                  <input
+                    type="text"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (isChatRestricted) return;
+                      if (e.key === 'Enter') sendMessage();
+                      handleTyping();
+                    }}
+                    placeholder={isChatRestricted ? "Chat is disabled by the host." : "Type a message..."}
+                    className={`chat-input ${isChatRestricted ? 'restricted' : ''}`}
+                    maxLength={500}
+                    disabled={isChatRestricted}
+                  />
+                  <label 
+                    className={`file-input-btn ${isChatRestricted ? 'disabled' : ''}`} 
+                    title={isChatRestricted ? "File sharing disabled by host" : "Share file (Max 10MB)"}
+                  >
+                    <FaFile />
+                    {!isChatRestricted && (
+                      <input 
+                        type="file" 
+                        onChange={handleFileUpload}
+                        style={{display: 'none'}}
+                      />
+                    )}
+                  </label>
+                  <button 
+                    className="send-btn" 
+                    onClick={sendMessage}
+                    disabled={isChatRestricted || !message.trim()}
+                  >
+                    <FaPaperPlane />
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -2826,6 +3052,91 @@ const EnhancedLiveMeeting = ({
         </div>
       )}
       
+      {/* Host Security Center Modal */}
+      {showSecurityModal && isHost && (
+        <div className="security-modal-overlay" onClick={() => setShowSecurityModal(false)}>
+          <div className="security-modal-content glassmorphic-card" onClick={(e) => e.stopPropagation()}>
+            <div className="security-modal-header">
+              <FaShieldAlt className="security-header-icon" />
+              <h3>Security Center</h3>
+              <button className="close-btn" onClick={() => setShowSecurityModal(false)}>
+                <FaTimes />
+              </button>
+            </div>
+            
+            <div className="security-modal-body">
+              <div className="security-section">
+                <h4>Meeting Lock</h4>
+                <div className="security-item">
+                  <div className="security-item-info">
+                    <span className="item-title">Lock Meeting</span>
+                    <span className="item-desc">Prevent any new participants from joining this session.</span>
+                  </div>
+                  <label className="switch-toggle">
+                    <input 
+                      type="checkbox" 
+                      checked={meetingLocked} 
+                      onChange={toggleLockMeeting}
+                    />
+                    <span className="switch-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="security-section border-top">
+                <h4>Participant Permissions</h4>
+                <p className="section-subtitle">Allow participants to perform the following actions:</p>
+                
+                <div className="security-item">
+                  <div className="security-item-info">
+                    <span className="item-title">Share Screen</span>
+                    <span className="item-desc">Allow users to share their desktop windows.</span>
+                  </div>
+                  <label className="switch-toggle">
+                    <input 
+                      type="checkbox" 
+                      checked={roomSecurity.allowScreenShare} 
+                      onChange={() => toggleSecurityPermission('allowScreenShare')}
+                    />
+                    <span className="switch-slider"></span>
+                  </label>
+                </div>
+
+                <div className="security-item">
+                  <div className="security-item-info">
+                    <span className="item-title">Chat & Share Files</span>
+                    <span className="item-desc">Allow users to send messages and attachments in the chat.</span>
+                  </div>
+                  <label className="switch-toggle">
+                    <input 
+                      type="checkbox" 
+                      checked={roomSecurity.allowChat} 
+                      onChange={() => toggleSecurityPermission('allowChat')}
+                    />
+                    <span className="switch-slider"></span>
+                  </label>
+                </div>
+
+                <div className="security-item">
+                  <div className="security-item-info">
+                    <span className="item-title">Unmute Microphone</span>
+                    <span className="item-desc">Allow users to unmute themselves.</span>
+                  </div>
+                  <label className="switch-toggle">
+                    <input 
+                      type="checkbox" 
+                      checked={roomSecurity.allowUnmute} 
+                      onChange={() => toggleSecurityPermission('allowUnmute')}
+                    />
+                    <span className="switch-slider"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Host Rating Modal */}
       <HostRatingModal 
         isOpen={showRatingModal}

@@ -2793,3 +2793,361 @@
   border-color: var(--accent-success);
   color: white;
 }
+
+/* ==========================================================================
+   ENTERPRISE PASSCODE GATE (ZOOM MODE)
+   ========================================================================== */
+.passcode-gate {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.95), rgba(8, 12, 24, 0.99));
+  z-index: 10000;
+  backdrop-filter: blur(25px);
+  padding: var(--space-4);
+}
+
+.passcode-gate-content {
+  width: 100%;
+  max-width: 480px;
+  background: rgba(30, 41, 59, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2xl), 0 0 40px rgba(0, 0, 0, 0.6);
+  padding: var(--space-8);
+  backdrop-filter: blur(20px);
+  text-align: center;
+  animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.passcode-gate-content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-primary));
+}
+
+.passcode-header {
+  margin-bottom: var(--space-6);
+}
+
+.passcode-icon-badge {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto var(--space-4);
+  box-shadow: 0 0 20px rgba(14, 165, 233, 0.15);
+}
+
+.lock-badge-icon {
+  font-size: 24px;
+  color: var(--accent-blue);
+  animation: pulseLock 2s infinite ease-in-out;
+}
+
+.passcode-subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: var(--line-height-relaxed);
+  margin-top: var(--space-2);
+}
+
+.passcode-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.passcode-input {
+  width: 100%;
+  padding: var(--space-4) var(--space-5);
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--text-lg);
+  letter-spacing: 4px;
+  text-align: center;
+  transition: all var(--transition-quick);
+}
+
+.passcode-input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 15px rgba(14, 165, 233, 0.25);
+  background: rgba(15, 23, 42, 0.8);
+}
+
+.passcode-input.input-error {
+  border-color: var(--accent-red);
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.25);
+}
+
+.error-message-alert {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--accent-red);
+  margin-top: var(--space-2);
+  font-weight: 600;
+  text-align: center;
+}
+
+.passcode-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.passcode-actions .control-btn {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  font-weight: 700;
+  border-radius: var(--radius-md);
+}
+
+/* ==========================================================================
+   HOST SECURITY CENTER PANEL MODAL
+   ========================================================================== */
+.security-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 12, 24, 0.7);
+  backdrop-filter: blur(12px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.security-modal-content {
+  width: 100%;
+  max-width: 480px;
+  background: rgba(30, 41, 59, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2xl);
+  overflow: hidden;
+  animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  backdrop-filter: blur(20px);
+}
+
+.security-modal-header {
+  display: flex;
+  align-items: center;
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.3);
+}
+
+.security-header-icon {
+  font-size: 20px;
+  color: var(--accent-blue);
+  margin-right: var(--space-3);
+}
+
+.security-modal-header h3 {
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.security-modal-header .close-btn {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-quick);
+}
+
+.security-modal-header .close-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.security-modal-body {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.security-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.security-section.border-top {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: var(--space-5);
+}
+
+.security-section h4 {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.section-subtitle {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.security-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(15, 23, 42, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-quick);
+}
+
+.security-item:hover {
+  background: rgba(15, 23, 42, 0.45);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.security-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.item-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.item-desc {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* Elegant Switch Toggle Slider */
+.switch-toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.switch-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: rgba(148, 163, 184, 0.3);
+  transition: .4s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 34px;
+}
+
+.switch-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .4s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.switch-toggle input:checked + .switch-slider {
+  background-color: var(--accent-success);
+}
+
+.switch-toggle input:checked + .switch-slider:before {
+  transform: translateX(20px);
+}
+
+/* ==========================================================================
+   GLOWING CYBER SCORE BADGE (ENTERPRISE PROTECTION)
+   ========================================================================== */
+.cyber-score-badge {
+  transition: all var(--transition-normal);
+}
+
+.cyber-score-badge.excellent {
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: var(--radius-sm);
+}
+
+.cyber-score-badge.good {
+  box-shadow: 0 0 15px rgba(5, 150, 105, 0.12);
+  border: 1px solid rgba(5, 150, 105, 0.18);
+  border-radius: var(--radius-sm);
+}
+
+.cyber-score-badge.poor {
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-sm);
+  animation: borderAlertPulse 2s infinite ease-in-out;
+}
+
+/* Restricted Button Overlay Lock Indicator */
+.control-btn.restricted {
+  background: rgba(239, 68, 68, 0.05) !important;
+  border-color: rgba(239, 68, 68, 0.15) !important;
+  opacity: 0.7;
+  cursor: not-allowed !important;
+}
+
+.chat-input.restricted {
+  background: rgba(15, 23, 42, 0.8) !important;
+  color: var(--text-tertiary) !important;
+  cursor: not-allowed !important;
+}
+
+.file-input-btn.disabled {
+  opacity: 0.3;
+  cursor: not-allowed !important;
+}
+
+@keyframes pulseLock {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); box-shadow: 0 0 25px rgba(14, 165, 233, 0.35); }
+}
+
+@keyframes borderAlertPulse {
+  0%, 100% { border-color: rgba(239, 68, 68, 0.2); box-shadow: 0 0 15px rgba(239, 68, 68, 0.15); }
+  50% { border-color: rgba(239, 68, 68, 0.45); box-shadow: 0 0 25px rgba(239, 68, 68, 0.3); }
+}
+
