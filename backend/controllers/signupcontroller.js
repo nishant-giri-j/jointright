@@ -126,8 +126,9 @@ export const requestOtp = async (req, res) => {
       }
       
       return res.status(500).json({ 
-        error: "Failed to send verification email. Please try again.",
-        code: "EMAIL_SEND_FAILED"
+        error: `Failed to send verification email. Details: ${emailError.message}`,
+        code: "EMAIL_SEND_FAILED",
+        details: emailError.stack
       });
     }
   } catch (error) {

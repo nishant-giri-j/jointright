@@ -29,6 +29,7 @@ import notificationRoutes from "./routes/notifications.js";
 import Meeting from "./models/meeting.js";
 import User from "./models/user.js";
 import CyberScore from "./models/cyberScore.js";
+import { sendEmail } from "./utils/sendemail.js";
 
 dotenv.config();
 
@@ -92,11 +93,50 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
+/* ------------------ EMAIL DIAGNOSTICS (TEMPORARY) ------------------ */
+app.get("/api/test-email-status", async (req, res) => {
+  try {
+    const testRecipient = req.query.email || "giri.nishant2005@gmail.com";
+    logger.info(`Starting live email test from server to: ${testRecipient}`);
+    
+    // Check credentials loaded
+    const credentials = {
+      GMAIL_USER: process.env.GMAIL_USER ? `${process.env.GMAIL_USER.substring(0, 4)}***` : "MISSING",
+      GMAIL_APP_PASSWORD: process.env.GMAIL_APP_PASSWORD ? `${process.env.GMAIL_APP_PASSWORD.length} chars` : "MISSING"
+    };
+
+    try {
+      await sendEmail(
+        testRecipient, 
+        "JointRight Live SMTP Diagnostic", 
+        "This is a diagnostic check from your live Render server to confirm nodemailer SMTP settings."
+      );
+      res.status(200).json({
+        status: "SUCCESS",
+        message: `Test email successfully sent to ${testRecipient}!`,
+        credentials
+      });
+    } catch (sendError) {
+      res.status(500).json({
+        status: "FAILED",
+        error: sendError.message,
+        stack: sendError.stack,
+        credentials
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      status: "ERROR",
+      message: error.message
+    });
+  }
+});
+
 /* ------------------ RATE LIMITING ------------------ */
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
-  skip: (req) => req.path === "/health" || req.path === "/api/health",
+  skip: (req) => req.path === "/health" || req.path === "/api/health" || req.path === "/api/test-email-status",
 });
 app.use(limiter);
 
