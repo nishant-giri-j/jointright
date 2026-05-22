@@ -17,7 +17,7 @@ import Profile from "./pages/Profile";
 
 // Component to handle root route redirection
 const RootRedirect = () => {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   
 
   if (isLoading) {

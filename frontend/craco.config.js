@@ -36,10 +36,6 @@ module.exports = {
           Buffer: ['buffer', 'Buffer'],
         }),
         new webpack.DefinePlugin({
-          'process.env': JSON.stringify({
-            NODE_ENV: env || 'development',
-            REACT_APP_API_URL: process.env.REACT_APP_API_URL || 'http://localhost:5000'
-          }),
           global: 'globalThis',
         }),
       ];

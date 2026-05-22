@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { signupAPI, apiUtils } from "../services/api";
-import { useAuth } from "../contexts/AuthContext";
 import { AUTH_STYLES } from "./login";
 
 const STEP = { EMAIL: "email", VERIFY: "verify", DONE: "done" };
@@ -30,7 +29,6 @@ const strengthLabel = s => s <= 1 ? "Weak" : s <= 3 ? "Fair" : s <= 4 ? "Good" :
 /* ── Component ─────────────────────────────────────────────────── */
 const SignupPage = () => {
   const navigate     = useNavigate();
-  const { login }    = useAuth();
 
   const [step,         setStep]        = useState(STEP.EMAIL);
   const [email,        setEmail]       = useState("");
