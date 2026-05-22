@@ -211,6 +211,23 @@ io.on("connection", (socket) => {
         return;
       }
 
+      // Check if meeting is ended
+      if (meeting.status === 'ended') {
+        socket.emit("rejected-from-meeting", { message: "This meeting has already ended." });
+        return;
+      }
+
+      // Check if meeting is locked (non-hosts cannot join locked meetings)
+      const roomMeta = activeRooms.get(roomId);
+      if (roomMeta?._locked) {
+        const userDocForLock = await User.findOne({ $or: [{ email: userId }, { email: userName }] });
+        const isHostCheck = userDocForLock && (meeting.creator === userDocForLock.email || (meeting.hostId && meeting.hostId.equals(userDocForLock._id)));
+        if (!isHostCheck) {
+          socket.emit("rejected-from-meeting", { message: "This meeting is locked. Only the host can join." });
+          return;
+        }
+      }
+
       // Check if user is the host/creator
       let isHost = false;
       const userDoc = await User.findOne({ 
@@ -469,6 +486,93 @@ io.on("connection", (socket) => {
   socket.on("host-disable-all-videos", ({ roomId, hostName }) => {
     if (!socket.isHost) return;
     socket.to(roomId).emit("host-disabled-all-videos", { hostName });
+  });
+
+  // Lock Meeting
+  socket.on("lock-meeting", ({ roomId }) => {
+    if (!socket.isHost) return;
+    const room = activeRooms.get(roomId);
+    if (room) room._locked = true;
+    socket.to(roomId).emit("meeting-locked", { hostName: socket.userName });
+    socket.emit("meeting-lock-confirmed", { locked: true });
+    logger.info(`Host ${socket.userName} locked meeting ${roomId}`);
+  });
+
+  // Unlock Meeting
+  socket.on("unlock-meeting", ({ roomId }) => {
+    if (!socket.isHost) return;
+    const room = activeRooms.get(roomId);
+    if (room) room._locked = false;
+    socket.to(roomId).emit("meeting-unlocked", { hostName: socket.userName });
+    socket.emit("meeting-lock-confirmed", { locked: false });
+    logger.info(`Host ${socket.userName} unlocked meeting ${roomId}`);
+  });
+
+  // Make Co-Host
+  socket.on("make-cohost", ({ participantId, roomId }) => {
+    if (!socket.isHost) return;
+    const targetSocket = io.sockets.sockets.get(participantId);
+    if (targetSocket) {
+      targetSocket.isHost = true;
+      const room = activeRooms.get(roomId);
+      if (room?.has(participantId)) {
+        const p = room.get(participantId);
+        room.set(participantId, { ...p, isHost: true });
+      }
+      targetSocket.emit("promoted-to-cohost", { hostName: socket.userName });
+      io.to(roomId).emit("cohost-assigned", { socketId: participantId, userName: targetSocket.userName });
+      logger.info(`${targetSocket.userName} promoted to co-host in ${roomId}`);
+    }
+  });
+
+  // End Meeting For All
+  socket.on("end-meeting-for-all", async ({ roomId }) => {
+    if (!socket.isHost) return;
+    io.to(roomId).emit("meeting-ended-by-host", { hostName: socket.userName });
+    try {
+      await Meeting.findOneAndUpdate(
+        { meetingId: roomId },
+        { status: 'ended', endedAt: new Date() }
+      );
+    } catch (err) {
+      logger.error(`Error ending meeting ${roomId}: ${err.message}`);
+    }
+    activeRooms.delete(roomId);
+    waitingRoomsMemory.delete(roomId);
+    admittedUsersMemory.delete(roomId);
+    logger.info(`Host ${socket.userName} ended meeting ${roomId} for all`);
+  });
+
+  // Host unmute request (politely asks participant to unmute)
+  socket.on("host-unmute-request", ({ participantId }) => {
+    if (!socket.isHost) return;
+    io.to(participantId).emit("host-unmute-requested", { hostName: socket.userName });
+  });
+
+  // File sharing relay (base64 or metadata)
+  socket.on("share-file", (fileData) => {
+    if (socket.roomId && socket.isAdmitted) {
+      // Validate size (10MB base64 ~ 13.3MB)
+      const dataSize = fileData.data ? fileData.data.length : 0;
+      if (dataSize > 14 * 1024 * 1024) {
+        socket.emit("file-share-error", { message: "File too large. Maximum size is 10MB." });
+        return;
+      }
+      socket.to(socket.roomId).emit("file-shared", {
+        ...fileData,
+        senderName: socket.userName,
+        senderId: socket.id,
+        id: Date.now() + Math.random()
+      });
+      // Echo back to sender so it shows in their own chat
+      socket.emit("file-shared", {
+        ...fileData,
+        senderName: socket.userName + " (You)",
+        senderId: socket.id,
+        isMine: true,
+        id: Date.now() + Math.random()
+      });
+    }
   });
 
   // WebRTC Signaling: Signal (Simple Peer uses this)

@@ -51,7 +51,9 @@ import {
   FaSignal,
   FaBroadcastTower,
   FaExclamationTriangle,
-  FaStar
+  FaStar,
+  FaUnlock,
+  FaDownload
 } from 'react-icons/fa';
 import './LiveMeetingEnhanced.css';
 import { useUI } from '../contexts/UIContext';
@@ -61,6 +63,23 @@ import HostAwardModal from './HostAwardModal';
 import CyberScoreBadge from './CyberScoreBadge';
 
 const SOCKET_SERVER_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+// Camera-Off Placeholder shown when video is disabled
+const CameraOffPlaceholder = ({ name, isHost, size = 'normal' }) => {
+  const initial = (name || '?').charAt(0).toUpperCase();
+  return (
+    <div className={`camera-off-placeholder placeholder-${size}`}>
+      <div className="avatar-circle">
+        <span className="avatar-initial">{initial}</span>
+      </div>
+      <div className="camera-off-info">
+        {isHost && <FaCrown className="ph-host-badge" />}
+        <span className="ph-name">{name}</span>
+        <FaVideoSlash className="ph-camera-icon" />
+      </div>
+    </div>
+  );
+};
 
 // Enhanced Video Tile Component with modern animations and dual-stream support
 const EnhancedVideoTile = React.memo(({ 
@@ -140,13 +159,17 @@ const EnhancedVideoTile = React.memo(({
         </div>
       )}
 
-      <video 
-        ref={ref} 
-        autoPlay 
-        playsInline 
-        className="peer-video"
-        style={{ display: isLoading || hasError ? 'none' : 'block' }}
-      />
+      {!isVideoOn ? (
+        <CameraOffPlaceholder name={userName} isHost={isHost} size={isSmall ? 'small' : 'normal'} />
+      ) : (
+        <video 
+          ref={ref} 
+          autoPlay 
+          playsInline 
+          className="peer-video"
+          style={{ display: isLoading || hasError ? 'none' : 'block' }}
+        />
+      )}
       
       <div className="video-overlay">
         <div className="participant-info">
@@ -225,6 +248,8 @@ const FloatingReaction = ({ emoji, sender, position, onComplete }) => {
     </div>
   );
 };
+
+
 
 // Main Enhanced LiveMeeting Component
 const EnhancedLiveMeeting = ({ 
@@ -311,6 +336,22 @@ const EnhancedLiveMeeting = ({
   const [showAwardModal, setShowAwardModal] = useState(false);
   const [selectedParticipantForAward, setSelectedParticipantForAward] = useState(null);
   const [cyberScores, setCyberScores] = useState({});
+
+  // Host-muted tracking (so unmute works correctly after host forces mute)
+  const [hostMutedAudio, setHostMutedAudio] = useState(false);
+  const [hostMutedVideo, setHostMutedVideo] = useState(false);
+
+  // Device selection
+  const [availableDevices, setAvailableDevices] = useState({ cameras: [], microphones: [] });
+  const [selectedCameraId, setSelectedCameraId] = useState('');
+  const [selectedMicId, setSelectedMicId] = useState('');
+  const [isSwitchingDevice, setIsSwitchingDevice] = useState(false);
+
+  // End-meeting modal (host: end for all vs leave)
+  const [showEndModal, setShowEndModal] = useState(false);
+
+  // File sharing in chat
+  const [sharedFiles, setSharedFiles] = useState([]);
   
   // Current user information for rating
   const currentUser = {
@@ -318,6 +359,15 @@ const EnhancedLiveMeeting = ({
     name: userName
   };
   
+  // Notification helper — defined early so it can be used in all hooks below
+  const showNotification = useCallback((message, type = 'info', duration = 5000) => {
+    const id = Date.now() + Math.random();
+    setNotifications(prev => [...prev, { id, message, type, timestamp: Date.now() }]);
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, duration);
+  }, []);
+
   // Enter immersive mode on mount
   useEffect(() => {
     enterImmersiveMode();
@@ -396,6 +446,12 @@ const EnhancedLiveMeeting = ({
           if (userVideo.current) {
             userVideo.current.srcObject = fallbackStream;
           }
+          // FIX: also connect socket on fallback stream
+          const isScreenShareSupported = navigator.mediaDevices?.getDisplayMedia &&
+            (window.location.protocol === 'https:' || window.location.hostname === 'localhost');
+          setSupportsScreenShare(isScreenShareSupported);
+          socketRef.current = io(SOCKET_SERVER_URL, { transports: ['websocket'], upgrade: false });
+          setupEnhancedSocketHandlers(fallbackStream);
         } catch (fallbackError) {
           console.error("Fallback media access failed:", fallbackError);
         }
@@ -833,37 +889,42 @@ const EnhancedLiveMeeting = ({
     return peer;
   }, []);
 
-  // Enhanced media controls with smooth transitions
+  // FIX: Guard against null stream; clear host-muted flag on manual unmute
   const toggleAudio = useCallback(() => {
-    if (userStream) {
-      const audioTrack = userStream.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !isAudioOn;
-        setIsAudioOn(!isAudioOn);
-        socketRef.current?.emit("toggle-audio", !isAudioOn);
-        
-        // Add haptic feedback on mobile
-        if (navigator.vibrate) {
-          navigator.vibrate(50);
-        }
-      }
+    if (!userStream) {
+      showNotification('No microphone stream. Check your device permissions.', 'warning');
+      return;
     }
-  }, [isAudioOn, userStream]);
+    const audioTrack = userStream.getAudioTracks()[0];
+    if (!audioTrack) {
+      showNotification('No microphone found. Please connect one.', 'warning');
+      return;
+    }
+    const newState = !isAudioOn;
+    audioTrack.enabled = newState;
+    setIsAudioOn(newState);
+    if (newState) setHostMutedAudio(false); // clear host-muted flag when manually unmuting
+    socketRef.current?.emit('toggle-audio', newState);
+    if (navigator.vibrate) navigator.vibrate(50);
+  }, [isAudioOn, userStream, showNotification]);
 
   const toggleVideo = useCallback(() => {
-    if (userStream) {
-      const videoTrack = userStream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !isVideoOn;
-        setIsVideoOn(!isVideoOn);
-        socketRef.current?.emit("toggle-video", !isVideoOn);
-        
-        if (navigator.vibrate) {
-          navigator.vibrate(50);
-        }
-      }
+    if (!userStream) {
+      showNotification('No camera stream. Check your device permissions.', 'warning');
+      return;
     }
-  }, [isVideoOn, userStream]);
+    const videoTrack = userStream.getVideoTracks()[0];
+    if (!videoTrack) {
+      showNotification('No camera found. Please connect one.', 'warning');
+      return;
+    }
+    const newState = !isVideoOn;
+    videoTrack.enabled = newState;
+    setIsVideoOn(newState);
+    if (newState) setHostMutedVideo(false); // clear host-muted flag when manually re-enabling
+    socketRef.current?.emit('toggle-video', newState);
+    if (navigator.vibrate) navigator.vibrate(50);
+  }, [isVideoOn, userStream, showNotification]);
 
   // Canvas composition for dual-stream (screen + camera)
   const createCompositeStream = useCallback((screenStream, cameraStream) => {
@@ -1272,22 +1333,11 @@ const EnhancedLiveMeeting = ({
     }
   }, [isHandRaised]);
 
-  // Memoized values for performance (moved here to be available for host controls)
+  // Memoized values for performance
   const activePeers = useMemo(() => peers.filter(p => p.peer && !p.peer.destroyed), [peers]);
-  const totalParticipants = activePeers.length + 1; // +1 for current user
+  const totalParticipants = activePeers.length + 1;
 
-  // Notification helper (moved up to be available for other functions)
-  const showNotification = useCallback((message, type = 'info', duration = 5000) => {
-    const id = Date.now() + Math.random();
-    const notification = { id, message, type, timestamp: Date.now() };
-    
-    setNotifications(prev => [...prev, notification]);
-    
-    // Auto remove after duration
-    setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== id));
-    }, duration);
-  }, []);
+  // showNotification is defined early (line ~354) — duplicate removed
 
   // Host controls
   const admitParticipant = useCallback((participantId) => {
@@ -1386,16 +1436,196 @@ const EnhancedLiveMeeting = ({
     }
   }, [isHost, roomId, userName, activePeers.length]);
 
-  // Meeting controls
-  const endCall = useCallback(() => {
-    cleanup();
-    if (onClose) {
-      onClose();
+  // Host Controls: Lock Meeting
+  const toggleLockMeeting = useCallback(() => {
+    if (!isHost || !socketRef.current) return;
+    const newLockState = !meetingLocked;
+    if (newLockState) {
+      socketRef.current.emit("lock-meeting", { roomId });
     } else {
-      navigate('/dashboard');
+      socketRef.current.emit("unlock-meeting", { roomId });
     }
-  }, [onClose, navigate]);
+  }, [isHost, meetingLocked, roomId]);
 
+  // Host Controls: Make Co-Host
+  const makeCohost = useCallback((participantId, participantName) => {
+    if (!isHost || !socketRef.current) return;
+    if (window.confirm(`Make ${participantName} a co-host?`)) {
+      socketRef.current.emit("make-cohost", { participantId, roomId });
+    }
+  }, [isHost, roomId]);
+
+  // Host Controls: Ask to Unmute
+  const askToUnmute = useCallback((participantId, participantName) => {
+    if (!isHost || !socketRef.current) return;
+    socketRef.current.emit("host-unmute-request", { participantId });
+    showNotification(`Requested ${participantName} to unmute.`, 'info');
+  }, [isHost, showNotification]);
+
+  // Device Switching & Enumeration
+  const enumerateDevices = useCallback(async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cameras = devices.filter(d => d.kind === 'videoinput');
+      const microphones = devices.filter(d => d.kind === 'audioinput');
+      setAvailableDevices({ cameras, microphones });
+    } catch (err) {
+      console.error("Error enumerating devices:", err);
+    }
+  }, []);
+
+  const changeDevice = useCallback(async (type, deviceId) => {
+    if (!userStream) return;
+    setIsSwitchingDevice(true);
+    try {
+      const currentVideoTrack = userStream.getVideoTracks()[0];
+      const currentAudioTrack = userStream.getAudioTracks()[0];
+      
+      const constraints = {
+        video: type === 'video' ? { deviceId: { exact: deviceId } } : (currentVideoTrack ? { deviceId: currentVideoTrack.getSettings().deviceId } : false),
+        audio: type === 'audio' ? { deviceId: { exact: deviceId } } : (currentAudioTrack ? { deviceId: currentAudioTrack.getSettings().deviceId } : false)
+      };
+
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      if (type === 'video') {
+        setSelectedCameraId(deviceId);
+        const newTrack = newStream.getVideoTracks()[0];
+        if (currentVideoTrack) {
+          userStream.removeTrack(currentVideoTrack);
+          currentVideoTrack.stop();
+        }
+        userStream.addTrack(newTrack);
+        
+        peersRef.current.forEach(({ peer }) => {
+          if (peer && !peer.destroyed) {
+            const sender = peer._pc?.getSenders?.()?.find(s => s.track && s.track.kind === 'video');
+            if (sender && sender.replaceTrack) {
+              sender.replaceTrack(newTrack);
+            }
+          }
+        });
+      } else {
+        setSelectedMicId(deviceId);
+        const newTrack = newStream.getAudioTracks()[0];
+        if (currentAudioTrack) {
+          userStream.removeTrack(currentAudioTrack);
+          currentAudioTrack.stop();
+        }
+        userStream.addTrack(newTrack);
+        
+        peersRef.current.forEach(({ peer }) => {
+          if (peer && !peer.destroyed) {
+            const sender = peer._pc?.getSenders?.()?.find(s => s.track && s.track.kind === 'audio');
+            if (sender && sender.replaceTrack) {
+              sender.replaceTrack(newTrack);
+            }
+          }
+        });
+      }
+      
+      if (userVideo.current) {
+        userVideo.current.srcObject = userStream;
+      }
+      showNotification(`${type === 'video' ? 'Camera' : 'Microphone'} switched successfully!`, 'success');
+    } catch (err) {
+      console.error("Error switching device:", err);
+      showNotification("Failed to switch device. It might be in use.", "error");
+    } finally {
+      setIsSwitchingDevice(false);
+    }
+  }, [userStream, showNotification]);
+
+  // Screen recording (WebRTC Local Recording)
+  const startRecording = useCallback(() => {
+    if (!userStream) {
+      showNotification("No stream to record.", "warning");
+      return;
+    }
+    try {
+      const options = { mimeType: 'video/webm;codecs=vp9,opus' };
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options.mimeType = 'video/webm;codecs=vp8,opus';
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+          options.mimeType = 'video/webm';
+        }
+      }
+      
+      const chunks = [];
+      const mediaRecorder = new MediaRecorder(userStream, options);
+      mediaRecorderRef.current = mediaRecorder;
+      
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          chunks.push(e.data);
+        }
+      };
+      
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `Meeting_${roomId}_Record_${Date.now()}.webm`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        }, 100);
+        showNotification("Recording stopped. File downloading...", "success");
+      };
+      
+      mediaRecorder.start(1000);
+      setIsRecording(true);
+      showNotification("Recording started.", "success");
+    } catch (err) {
+      console.error("Error starting recording:", err);
+      showNotification("Could not start recording.", "error");
+    }
+  }, [userStream, roomId, showNotification]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  }, [isRecording]);
+
+  // File Upload Handlers (Max 10MB)
+  const handleFileUpload = useCallback((e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      showNotification("File size exceeds 10MB limit.", "error");
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const fileData = {
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        data: event.target.result // Base64 Data URL
+      };
+      socketRef.current?.emit("share-file", fileData);
+    };
+    reader.readAsDataURL(file);
+    showNotification(`Uploading ${file.name}...`, 'info');
+  }, [showNotification]);
+
+  // Enumerate devices on settings load
+  useEffect(() => {
+    if (showSettings) {
+      enumerateDevices();
+    }
+  }, [showSettings, enumerateDevices]);
+
+  // Meeting controls & Cleanup
   const cleanup = useCallback(() => {
     peersRef.current.forEach(({ peer }) => {
       try {
@@ -1427,6 +1657,22 @@ const EnhancedLiveMeeting = ({
       socketRef.current.disconnect();
     }
   }, [userStream, screenStream]);
+
+  const endCall = useCallback(() => {
+    cleanup();
+    if (onClose) {
+      onClose();
+    } else {
+      navigate('/dashboard');
+    }
+  }, [onClose, navigate, cleanup]);
+
+  const endMeetingForAll = useCallback(() => {
+    if (!isHost || !socketRef.current) return;
+    if (window.confirm("Are you sure you want to end this meeting for everyone?")) {
+      socketRef.current.emit("end-meeting-for-all", { roomId });
+    }
+  }, [isHost, roomId]);
 
   // Cyber Score and Rating Functions
   const openRatingModal = useCallback((participant) => {
@@ -1789,29 +2035,36 @@ const EnhancedLiveMeeting = ({
                     
                     {/* Camera picture-in-picture when screen sharing */}
                     <div className="camera-pip">
-                      <video 
-                        ref={userVideo} 
-                        autoPlay 
-                        playsInline 
-                        muted 
-                        className="pip-video"
-                      />
+                      {!isVideoOn ? (
+                        <CameraOffPlaceholder name={userName} isHost={isHost} size="small" />
+                      ) : (
+                        <video 
+                          ref={userVideo} 
+                          autoPlay 
+                          playsInline 
+                          muted 
+                          className="pip-video"
+                        />
+                      )}
                       <div className="pip-overlay">
                         <span className="pip-label">You</span>
-                        {!isVideoOn && <div className="video-disabled-overlay">Camera Off</div>}
                       </div>
                     </div>
                   </>
                 ) : (
                   // Normal camera view when not screen sharing
                   <>
-                    <video 
-                      ref={userVideo} 
-                      autoPlay 
-                      playsInline 
-                      muted 
-                      className="main-video"
-                    />
+                    {!isVideoOn ? (
+                      <CameraOffPlaceholder name={userName} isHost={isHost} size="normal" />
+                    ) : (
+                      <video 
+                        ref={userVideo} 
+                        autoPlay 
+                        playsInline 
+                        muted 
+                        className="main-video"
+                      />
+                    )}
                     <div className="video-overlay">
                       <div className="participant-name">
                         {userName} (You) - Camera
@@ -1869,13 +2122,17 @@ const EnhancedLiveMeeting = ({
                     </div>
                     
                     <div className="video-tile camera-tile">
-                      <video 
-                        ref={userVideo} 
-                        autoPlay 
-                        playsInline 
-                        muted 
-                        className="participant-video camera-video"
-                      />
+                      {!isVideoOn ? (
+                        <CameraOffPlaceholder name={userName} isHost={isHost} size="normal" />
+                      ) : (
+                        <video 
+                          ref={userVideo} 
+                          autoPlay 
+                          playsInline 
+                          muted 
+                          className="participant-video camera-video"
+                        />
+                      )}
                       <div className="video-overlay">
                         <div className="participant-name">
                           {userName} (You) - Camera
@@ -1883,20 +2140,23 @@ const EnhancedLiveMeeting = ({
                           {!isAudioOn && <FaMicrophoneSlash className="muted-icon" />}
                           {isHandRaised && <FaHandPaper className="hand-raised-icon" />}
                         </div>
-                        {!isVideoOn && <div className="video-disabled-overlay">Camera Off</div>}
                       </div>
                     </div>
                   </>
                 ) : (
                   // Normal camera view when not screen sharing
                   <div className="video-tile">
-                    <video 
-                      ref={userVideo} 
-                      autoPlay 
-                      playsInline 
-                      muted 
-                      className="participant-video"
-                    />
+                    {!isVideoOn ? (
+                      <CameraOffPlaceholder name={userName} isHost={isHost} size="normal" />
+                    ) : (
+                      <video 
+                        ref={userVideo} 
+                        autoPlay 
+                        playsInline 
+                        muted 
+                        className="participant-video"
+                      />
+                    )}
                     <div className="video-overlay">
                       <div className="participant-name">
                         {userName} (You) - Camera
@@ -1954,7 +2214,11 @@ const EnhancedLiveMeeting = ({
               {isAudioOn ? <FaMicrophone /> : <FaMicrophoneSlash />}
               <span>{isAudioOn ? 'Mute' : 'Unmute'}</span>
             </button>
-            <button className="dropdown-btn" title="Audio settings">
+            <button 
+              className="dropdown-btn" 
+              onClick={() => setShowSettings(!showSettings)} 
+              title="Audio settings"
+            >
               <FaChevronUp />
             </button>
           </div>
@@ -1968,7 +2232,11 @@ const EnhancedLiveMeeting = ({
               {isVideoOn ? <FaVideo /> : <FaVideoSlash />}
               <span>{isVideoOn ? 'Stop Video' : 'Start Video'}</span>
             </button>
-            <button className="dropdown-btn" title="Video settings">
+            <button 
+              className="dropdown-btn" 
+              onClick={() => setShowSettings(!showSettings)} 
+              title="Video settings"
+            >
               <FaChevronUp />
             </button>
           </div>
@@ -1986,19 +2254,20 @@ const EnhancedLiveMeeting = ({
                 <FaDesktop />
                 <span>{isScreenSharing ? 'Stop Share' : 'Share'}</span>
               </button>
-              <button className="dropdown-btn" title="Share options">
-                <FaChevronUp />
-              </button>
             </div>
           )}
 
-
           <button 
-            className={`control-btn secondary ${showParticipants ? 'active' : ''}`}
+            className={`control-btn secondary ${showParticipants ? 'active' : ''} participants-control-btn`}
             onClick={() => setShowParticipants(!showParticipants)}
             title="Participants (P)"
           >
-            <FaUsers />
+            <div className="icon-wrapper">
+              <FaUsers />
+              {isHost && waitingParticipants.length > 0 && (
+                <span className="waiting-badge">{waitingParticipants.length}</span>
+              )}
+            </div>
             <span>Participants</span>
           </button>
 
@@ -2040,16 +2309,133 @@ const EnhancedLiveMeeting = ({
         </div>
 
         <div className="controls-right">
-          <button 
-            className="control-btn danger end-btn"
-            onClick={endCall}
-            title="End Meeting"
-          >
-            <FaPhone />
-            <span>End Meeting</span>
-          </button>
+          {isHost ? (
+            <button 
+              className="control-btn danger end-btn"
+              onClick={() => setShowEndModal(true)}
+              title="End / Leave Meeting"
+            >
+              <FaPhone />
+              <span>Leave / End</span>
+            </button>
+          ) : (
+            <button 
+              className="control-btn danger end-btn"
+              onClick={endCall}
+              title="Leave Meeting"
+            >
+              <FaPhone />
+              <span>Leave</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Leave vs End Modal for Hosts */}
+      {showEndModal && (
+        <div className="meeting-modal-overlay">
+          <div className="meeting-modal-content">
+            <h3>Exit Meeting</h3>
+            <p>You are the host. Would you like to end the meeting for everyone or just leave?</p>
+            <div className="modal-actions">
+              <button className="modal-btn danger" onClick={endMeetingForAll}>
+                End Meeting for All
+              </button>
+              <button className="modal-btn secondary" onClick={endCall}>
+                Leave Meeting
+              </button>
+              <button className="modal-btn" onClick={() => setShowEndModal(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* More Options Dropdown Panel */}
+      {showMoreOptions && (
+        <div className="more-options-dropdown">
+          <button 
+            className={`dropdown-item ${isRecording ? 'recording-active' : ''}`} 
+            onClick={isRecording ? stopRecording : startRecording}
+          >
+            <FaMicrophone className={isRecording ? 'pulse' : ''} />
+            <span>{isRecording ? 'Stop Recording' : 'Record Locally'}</span>
+          </button>
+
+          {isHost && (
+            <button className="dropdown-item" onClick={toggleLockMeeting}>
+              {meetingLocked ? <FaUnlock /> : <FaLock />}
+              <span>{meetingLocked ? 'Unlock Meeting' : 'Lock Meeting'}</span>
+            </button>
+          )}
+
+          <button className="dropdown-item" onClick={() => { setShowSettings(true); setShowMoreOptions(false); }}>
+            <FaCog />
+            <span>Device Settings</span>
+          </button>
+
+          <button className="dropdown-item" onClick={() => {
+            navigator.clipboard.writeText(window.location.href);
+            showNotification("Meeting link copied to clipboard!", "success");
+          }}>
+            <FaUserPlus />
+            <span>Copy Join Link</span>
+          </button>
+        </div>
+      )}
+
+      {/* Device Settings Panel */}
+      {showSettings && (
+        <div className="settings-panel">
+          <div className="panel-header">
+            <h3>Device Settings</h3>
+            <button className="close-btn" onClick={() => setShowSettings(false)}>
+              <FaTimes />
+            </button>
+          </div>
+          <div className="settings-body">
+            {isSwitchingDevice && (
+              <div className="switching-overlay">
+                <div className="loading-spinner"></div>
+                <p>Switching device...</p>
+              </div>
+            )}
+            
+            <div className="setting-control">
+              <label><FaVideo /> Camera Select</label>
+              <select 
+                value={selectedCameraId}
+                onChange={(e) => changeDevice('video', e.target.value)}
+                disabled={isSwitchingDevice}
+              >
+                <option value="">Default Camera</option>
+                {availableDevices.cameras.map((cam) => (
+                  <option key={cam.deviceId} value={cam.deviceId}>
+                    {cam.label || `Camera ${cam.deviceId.slice(0, 5)}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="setting-control">
+              <label><FaMicrophone /> Microphone Select</label>
+              <select 
+                value={selectedMicId}
+                onChange={(e) => changeDevice('audio', e.target.value)}
+                disabled={isSwitchingDevice}
+              >
+                <option value="">Default Microphone</option>
+                {availableDevices.microphones.map((mic) => (
+                  <option key={mic.deviceId} value={mic.deviceId}>
+                    {mic.label || `Microphone ${mic.deviceId.slice(0, 5)}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Enhanced Reactions Panel */}
       {showReactions && (
@@ -2126,7 +2512,7 @@ const EnhancedLiveMeeting = ({
       {showChat && (
         <div className="chat-panel">
           <div className="panel-header">
-            <h3>Chat</h3>
+            <h3>Chat & Shared Files</h3>
             <button 
               className="close-btn"
               onClick={() => setShowChat(false)}
@@ -2145,6 +2531,35 @@ const EnhancedLiveMeeting = ({
                   </span>
                 </div>
                 <div className="message-content">{msg.message}</div>
+              </div>
+            ))}
+
+            {/* Shared Files render view with download capability */}
+            {sharedFiles.map((file) => (
+              <div key={file.id} className={`chat-message shared-file-bubble ${file.isMine ? 'my-file' : ''}`}>
+                <div className="message-header">
+                  <span className="sender-name">{file.senderName}</span>
+                  <span className="message-time">
+                    {new Date(file.receivedAt || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  </span>
+                </div>
+                <div className="file-box">
+                  <div className="file-icon-box">
+                    <FaFile className="shared-file-icon" />
+                  </div>
+                  <div className="file-info-text">
+                    <span className="file-name" title={file.fileName}>{file.fileName}</span>
+                    <span className="file-size">{(file.fileSize / 1024 / 1024).toFixed(2)} MB</span>
+                  </div>
+                  <a 
+                    href={file.data} 
+                    download={file.fileName}
+                    className="file-download-btn"
+                    title="Download File"
+                  >
+                    <FaDownload />
+                  </a>
+                </div>
               </div>
             ))}
             
@@ -2170,14 +2585,11 @@ const EnhancedLiveMeeting = ({
                 className="chat-input"
                 maxLength={500}
               />
-              <label className="file-input-btn">
+              <label className="file-input-btn" title="Share file (Max 10MB)">
                 <FaFile />
                 <input 
                   type="file" 
-                  onChange={(e) => {
-                    // File sending logic would go here
-                    console.log('File selected:', e.target.files[0]);
-                  }}
+                  onChange={handleFileUpload}
                   style={{display: 'none'}}
                 />
               </label>
@@ -2270,6 +2682,22 @@ const EnhancedLiveMeeting = ({
                   </div>
                   {isHost && (
                     <div className="participant-controls">
+                      <button 
+                        title="Make Co-Host" 
+                        className="participant-control-btn cohost-btn"
+                        onClick={() => makeCohost(peer.socketId, peer.userName)}
+                        disabled={peer.isHost}
+                      >
+                        <FaCrown />
+                      </button>
+                      <button 
+                        title="Ask to Unmute" 
+                        className="participant-control-btn unmute-request-btn"
+                        onClick={() => askToUnmute(peer.socketId, peer.userName)}
+                        disabled={peer.isAudioOn !== false}
+                      >
+                        <FaMicrophone />
+                      </button>
                       <button 
                         title="Award participant" 
                         className="participant-control-btn award-btn"
