@@ -710,7 +710,19 @@ const EnhancedLiveMeeting = ({
     // Waiting room management for hosts
     socket.on("waiting-participants-update", (participants) => {
       console.log('Host received waiting participants update:', participants);
-      setWaitingParticipants(participants);
+      
+      setWaitingParticipants(prev => {
+        const nextList = participants || [];
+        const prevList = prev || [];
+        if (nextList.length > prevList.length) {
+          const prevIds = new Set(prevList.map(p => p.socketId));
+          const newParticipants = nextList.filter(p => !prevIds.has(p.socketId));
+          newParticipants.forEach(np => {
+            showNotification(`${np.userName} is in the waiting room.`, "info", 6000);
+          });
+        }
+        return nextList;
+      });
     });
 
     socket.on("admitted-to-meeting", () => {
@@ -2920,7 +2932,13 @@ const EnhancedLiveMeeting = ({
             </div>
             
             {activePeers.map((peer, index) => {
-              const userScore = cyberScores[peer.userId || peer.socketId] || peer.cyberScore || { currentScore: 85, reputationLevel: 'good' };
+              const rawPeerScore = cyberScores[peer.userId || peer.socketId] || peer.cyberScore || {};
+              const userScore = {
+                currentScore: rawPeerScore.currentScore !== undefined ? rawPeerScore.currentScore : (rawPeerScore.score !== undefined ? rawPeerScore.score : 85),
+                reputationLevel: rawPeerScore.reputationLevel !== undefined ? rawPeerScore.reputationLevel : (rawPeerScore.level !== undefined ? rawPeerScore.level : 'good'),
+                isRestricted: rawPeerScore.isRestricted || false,
+                totalMeetings: rawPeerScore.totalMeetings || 0
+              };
               return (
                 <div key={peer.socketId || index} className="participant-item">
                   <div className="participant-info">
@@ -3011,7 +3029,13 @@ const EnhancedLiveMeeting = ({
               <h4>Waiting Room ({waitingParticipants.length})</h4>
               <div className="waiting-participants-list">
                 {waitingParticipants.map((participant) => {
-                  const waitingScore = participant.cyberScore || { currentScore: 85, reputationLevel: 'good' };
+                  const rawScore = participant.cyberScore || {};
+                  const waitingScore = {
+                    currentScore: rawScore.currentScore !== undefined ? rawScore.currentScore : (rawScore.score !== undefined ? rawScore.score : 85),
+                    reputationLevel: rawScore.reputationLevel !== undefined ? rawScore.reputationLevel : (rawScore.level !== undefined ? rawScore.level : 'good'),
+                    isRestricted: rawScore.isRestricted || false,
+                    totalMeetings: rawScore.totalMeetings || 0
+                  };
                   return (
                     <div key={participant.socketId} className="waiting-participant-item">
                       <div className="participant-info">

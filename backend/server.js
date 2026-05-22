@@ -277,15 +277,6 @@ io.on("connection", (socket) => {
         waitingRoomsMemory.set(roomId, new Map());
       }
 
-      // Send host status to the socket
-      roomMeta = activeRooms.get(roomId);
-      socket.emit("host-status", {
-        isHost,
-        meetingStarted: meeting.status === "ongoing",
-        isAdmitted: isHost || !meeting.hostControls?.requireHostApproval,
-        security: roomMeta?._security || { allowScreenShare: true, allowChat: true, allowUnmute: true }
-      });
-
       // 2. Handle Waiting Room Logic
       const requireApproval = meeting.hostControls?.requireHostApproval;
       if (!admittedUsersMemory.has(roomId)) {
@@ -303,6 +294,15 @@ io.on("connection", (socket) => {
       } else if (roomAdmitted.has(userId)) {
         socket.isAdmitted = true;
       }
+
+      // Send host status to the socket
+      roomMeta = activeRooms.get(roomId);
+      socket.emit("host-status", {
+        isHost,
+        meetingStarted: meeting.status === "ongoing",
+        isAdmitted: socket.isAdmitted,
+        security: roomMeta?._security || { allowScreenShare: true, allowChat: true, allowUnmute: true }
+      });
 
       if (!socket.isAdmitted) {
         logger.info(`User ${userName} added to waiting room for meeting ${roomId}`);

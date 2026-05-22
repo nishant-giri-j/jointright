@@ -145,6 +145,11 @@ const JoinMeeting = () => {
           userEmail: userIdentifier
         }));
 
+        // Store the passcode in localStorage so LiveMeetingEnhanced automatically bypasses the passcode gate
+        if (password) {
+          localStorage.setItem(`verified_passcode_${meetingId}`, password.trim());
+        }
+
         // Navigate to the live meeting
         navigate(`/live/${meetingId}`, { 
           state: { 

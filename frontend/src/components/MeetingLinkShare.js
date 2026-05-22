@@ -34,7 +34,7 @@ const MeetingLinkShare = ({ meeting, isOpen, onClose }) => {
     }
   };
 
-  const getDirectLink = () => `${window.location.origin}/live/${meeting.meetingId}`;
+  const getDirectLink = () => `${window.location.origin}/live/${meeting.meetingId}?pwd=${meeting.password}`;
 
   const shareViaWhatsApp = () => {
     const message = `Join my meeting: "${meeting.title}"\n\n🔗 Direct Join Link: ${getDirectLink()}\n\nOr use credentials:\nMeeting ID: ${meeting.meetingId}\nPassword: ${meeting.password}\nScheduled: ${new Date(meeting.scheduledAt).toLocaleString()}`;
