@@ -96,6 +96,7 @@ const EnhancedVideoTile = React.memo(({
   isHost = false
 }) => {
   const ref = useRef();
+  const audioRef = useRef();
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -104,15 +105,33 @@ const EnhancedVideoTile = React.memo(({
     if (peer) {
       const handleStream = (stream) => {
         if (ref.current) {
-          ref.current.srcObject = stream;
-          // Explicitly call play to handle browser autoplay policies gracefully
-          ref.current.play().catch(e => {
-            console.warn('Autoplay prevented by browser policy:', e);
-            // Optionally, we could show an "unmute to play" overlay here if needed
-          });
-          setIsLoading(false);
-          setHasError(false);
+          try {
+            // Split out the video tracks to completely decouple them from audio
+            const videoTracks = stream.getVideoTracks();
+            if (videoTracks.length > 0) {
+              ref.current.srcObject = new MediaStream(videoTracks);
+              ref.current.play().catch(e => console.warn('Video Autoplay prevented:', e));
+            }
+          } catch (err) {
+            console.warn('Could not extract video stream:', err);
+          }
         }
+        
+        if (audioRef.current) {
+          try {
+            // Split out the audio tracks to an independent invisible audio element
+            const audioTracks = stream.getAudioTracks();
+            if (audioTracks.length > 0) {
+              audioRef.current.srcObject = new MediaStream(audioTracks);
+              audioRef.current.play().catch(e => console.warn('Audio Autoplay prevented:', e));
+            }
+          } catch (err) {
+            console.warn('Could not extract audio stream:', err);
+          }
+        }
+        
+        setIsLoading(false);
+        setHasError(false);
       };
 
       const handleError = (error) => {
@@ -172,17 +191,28 @@ const EnhancedVideoTile = React.memo(({
         </div>
       )}
 
-      {!isVideoOn ? (
+      {!isVideoOn && (
         <CameraOffPlaceholder name={userName} isHost={isHost} size={isSmall ? 'small' : 'normal'} />
-      ) : (
-        <video 
-          ref={ref} 
-          autoPlay 
-          playsInline 
-          className="peer-video"
-          style={{ display: isLoading || hasError ? 'none' : 'block' }}
-        />
       )}
+      
+      <video 
+        ref={ref} 
+        autoPlay 
+        playsInline 
+        className="peer-video"
+        style={{ display: (!isVideoOn || isLoading || hasError) ? 'none' : 'block' }}
+      />
+      
+      {/* 
+        CRITICAL AUDIO PIPELINE: 
+        This isolated hidden element ensures audio plays independently of the camera's visual state 
+      */}
+      <audio 
+        ref={audioRef} 
+        autoPlay 
+        playsInline 
+        style={{ display: 'none' }} 
+      />
       
       <div className="video-overlay">
         <div className="participant-info">
@@ -288,6 +318,7 @@ const EnhancedLiveMeeting = ({
   const cameraVideo = useRef();
   const screenShareVideo = useRef();
   const peersRef = useRef([]);
+  const pendingSignalsRef = useRef(new Map()); // Queues early WebRTC signals to prevent race conditions
   const chatContainerRef = useRef();
   const mediaRecorderRef = useRef(null);
   const userStreamRef = useRef(null);
@@ -653,12 +684,25 @@ const EnhancedLiveMeeting = ({
         };
         setPeers(prev => [...prev, newPeer]);
         setParticipantsList(prev => [...prev, userInfo]);
+        
+        // Process any queued signals that arrived before the peer was created
+        const queuedSignals = pendingSignalsRef.current.get(userInfo.socketId);
+        if (queuedSignals && queuedSignals.length > 0) {
+          queuedSignals.forEach(signal => {
+            try {
+              peer.signal(signal);
+            } catch (err) {
+              console.warn('Error processing queued signal:', err);
+            }
+          });
+          pendingSignalsRef.current.delete(userInfo.socketId);
+        }
       } catch (error) {
         console.error('Error handling new user connection:', error);
       }
     });
 
-    // Enhanced signaling with error handling
+    // Enhanced signaling with race condition prevention
     socket.on("signal", ({ from, signal }) => {
       const item = peersRef.current.find(p => p.peerID === from);
       if (item?.peer && !item.peer.destroyed) {
@@ -667,6 +711,12 @@ const EnhancedLiveMeeting = ({
         } catch (error) {
           console.warn('Error processing signal:', error);
         }
+      } else {
+        // Race condition: Signal arrived before user-connected event created the peer!
+        // Queue the signal to be processed when the peer is created.
+        const queue = pendingSignalsRef.current.get(from) || [];
+        queue.push(signal);
+        pendingSignalsRef.current.set(from, queue);
       }
     });
 
@@ -693,6 +743,30 @@ const EnhancedLiveMeeting = ({
           chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
         }
       }, 100);
+    });
+
+    // File sharing handling
+    socket.on("file-shared", (fileInfo) => {
+      setSharedFiles(prev => [...prev, fileInfo]);
+      // Auto-add it to chat as well
+      setChatMessages(prev => [...prev, {
+        id: fileInfo.id || Date.now() + Math.random(),
+        senderId: fileInfo.senderId,
+        senderName: fileInfo.senderName,
+        text: `Shared a file: ${fileInfo.fileName}`,
+        timestamp: new Date().toISOString(),
+        isFile: true,
+        fileInfo
+      }]);
+      setTimeout(() => {
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+      }, 100);
+    });
+    
+    socket.on("file-share-error", (error) => {
+      showNotification(error.message, "error");
     });
 
     // Enhanced typing indicators
@@ -2347,17 +2421,17 @@ const EnhancedLiveMeeting = ({
                     
                     {/* Camera picture-in-picture when screen sharing */}
                     <div className="camera-pip">
-                      {!isVideoOn ? (
+                      {!isVideoOn && (
                         <CameraOffPlaceholder name={userName} isHost={isHost} size="small" />
-                      ) : (
-                        <video 
-                          ref={userVideo} 
-                          autoPlay 
-                          playsInline 
-                          muted 
-                          className="pip-video"
-                        />
                       )}
+                      <video 
+                        ref={userVideo} 
+                        autoPlay 
+                        playsInline 
+                        muted 
+                        className="pip-video"
+                        style={{ display: !isVideoOn ? 'none' : 'block' }}
+                      />
                       <div className="pip-overlay">
                         <span className="pip-label">You</span>
                       </div>
@@ -2366,17 +2440,17 @@ const EnhancedLiveMeeting = ({
                 ) : (
                   // Normal camera view when not screen sharing
                   <>
-                    {!isVideoOn ? (
+                    {!isVideoOn && (
                       <CameraOffPlaceholder name={userName} isHost={isHost} size="normal" />
-                    ) : (
-                      <video 
-                        ref={userVideo} 
-                        autoPlay 
-                        playsInline 
-                        muted 
-                        className="main-video"
-                      />
                     )}
+                    <video 
+                      ref={userVideo} 
+                      autoPlay 
+                      playsInline 
+                      muted 
+                      className="main-video"
+                      style={{ display: !isVideoOn ? 'none' : 'block' }}
+                    />
                     <div className="video-overlay">
                       <div className="participant-name">
                         {userName} (You) - Camera
