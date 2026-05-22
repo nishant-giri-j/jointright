@@ -1052,19 +1052,20 @@ const EnhancedLiveMeeting = ({
 
   const toggleVideo = useCallback(async () => {
     try {
-      if (isVideoOn) {
-        // Turning video OFF: Stop all video tracks to release camera hardware completely
-        if (userStream) {
-          userStream.getVideoTracks().forEach(track => {
-            track.stop();
-            userStream.removeTrack(track);
-          });
-        }
-        setIsVideoOn(false);
-        socketRef.current?.emit('toggle-video', false);
-        showNotification('Camera stopped, hardware released.', 'info', 2000);
+      const videoTracks = userStream ? userStream.getVideoTracks() : [];
+      
+      if (videoTracks.length > 0) {
+        // Professional Pattern: Soft disable instead of stopping hardware
+        videoTracks.forEach(track => {
+          track.enabled = !isVideoOn;
+        });
+        
+        setIsVideoOn(!isVideoOn);
+        setHostMutedVideo(false);
+        socketRef.current?.emit('toggle-video', !isVideoOn);
+        showNotification(isVideoOn ? 'Camera paused.' : 'Camera resumed.', 'info', 2000);
       } else {
-        // Turning video ON: Obtain fresh video track from hardware
+        // Fallback: If no video track exists (e.g., initial permissions denied), fetch it once
         const constraints = {
           video: selectedCameraId ? { deviceId: { exact: selectedCameraId } } : {
             width: { ideal: 1280 },
@@ -1079,7 +1080,6 @@ const EnhancedLiveMeeting = ({
         if (newVideoTrack && userStream) {
           userStream.addTrack(newVideoTrack);
           
-          // Replace track for all active peer connections dynamically
           peersRef.current.forEach(({ peer }) => {
             if (peer && !peer.destroyed) {
               try {
@@ -1088,7 +1088,6 @@ const EnhancedLiveMeeting = ({
                 if (sender && sender.replaceTrack) {
                   sender.replaceTrack(newVideoTrack);
                 } else if (peer.addTrack) {
-                  // If no video sender exists (e.g. joined with video off), add it dynamically
                   peer.addTrack(newVideoTrack, userStream);
                 }
               } catch (peerErr) {
@@ -1096,6 +1095,9 @@ const EnhancedLiveMeeting = ({
               }
             }
           });
+        } else if (newVideoTrack) {
+          setUserStream(newStream);
+          userStreamRef.current = newStream;
         }
         
         setIsVideoOn(true);
