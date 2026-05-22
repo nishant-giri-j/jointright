@@ -1,14 +1,17 @@
 # =========================
 # Environment / Secrets
 # =========================
+.env
+.env.*
 backend/.env
 backend/.env.*
+frontend/.env
+frontend/.env.*
+
+# Keep only the template .env.production files tracked but WITHOUT real secrets
+!.env.production
 !backend/.env.production
-# Keep .env.production committed but WITHOUT real secrets
-# Use .env.local for real production secrets - never commit it
-.env.local
-.env.*.local
-*.local
+!frontend/.env.production
 
 # =========================
 # Node Modules
