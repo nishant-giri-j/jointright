@@ -35,6 +35,14 @@ dotenv.config();
 const app = express();
 const httpServer = createServer(app);
 
+/* ------------------ URL NORMALIZATION MIDDLEWARE ------------------ */
+app.use((req, res, next) => {
+  if (req.url && req.url.includes("//")) {
+    req.url = req.url.replace(/\/\/+/g, "/");
+  }
+  next();
+});
+
 /* ------------------ BASIC MIDDLEWARE ------------------ */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
