@@ -10280,3 +10280,10 @@
 {"level":"info","message":"Server running on port 5000","service":"jointright-backend","timestamp":"2026-05-22 12:57:05"}
 {"level":"info","message":"✅ MongoDB Connected: ac-t0o44my-shard-00-01.rrwnqur.mongodb.net","service":"jointright-backend","timestamp":"2026-05-22 12:57:07"}
 {"level":"info","message":"MongoDB connected","service":"jointright-backend","timestamp":"2026-05-22 12:57:07"}
+{"level":"info","message":"Server running on port 5000","service":"jointright-backend","timestamp":"2026-05-22 12:59:25"}
+{"level":"info","message":"✅ MongoDB Connected: ac-t0o44my-shard-00-00.rrwnqur.mongodb.net","service":"jointright-backend","timestamp":"2026-05-22 12:59:26"}
+{"level":"info","message":"MongoDB connected","service":"jointright-backend","timestamp":"2026-05-22 12:59:26"}
+{"level":"info","message":"OTP sent successfully to nishantgiri2005@gmail.com","service":"jointright-backend","timestamp":"2026-05-22 13:00:45"}
+{"level":"info","message":"User successfully signed up: nishantgiri2005@gmail.com","service":"jointright-backend","timestamp":"2026-05-22 13:01:21"}
+{"level":"info","message":"Successful login: nishantgiri2005@gmail.com","service":"jointright-backend","timestamp":"2026-05-22 13:01:50"}
+{"level":"warn","message":"MongoDB disconnected","service":"jointright-backend","timestamp":"2026-05-22 13:03:22"}
