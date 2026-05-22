@@ -48,11 +48,20 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({
   origin: function (origin, callback) {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const altUrl = process.env.FRONTEND_URL_ALT || 'http://localhost:3001';
+    
+    // Check if wildcard '*' is defined
+    if (frontendUrl === '*' || altUrl === '*') {
+      callback(null, true);
+      return;
+    }
+
     const allowedOrigins = [
-      process.env.FRONTEND_URL || 'http://localhost:3000',
-      process.env.FRONTEND_URL_ALT || 'http://localhost:3001',
+      ...frontendUrl.split(',').map(o => o.trim()),
+      ...altUrl.split(',').map(o => o.trim())
     ];
-    // Allow requests with no origin (mobile apps, Postman, server-to-server)
+
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
