@@ -8,6 +8,7 @@ const meetingSchema = new mongoose.Schema({
   creator: { type: String, required: true }, // Host/Creator email
   hostId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Host user ID
   description: { type: String, default: '' },
+  creatorTimezone: { type: String, default: 'UTC' }, // IANA timezone of the host e.g. "Asia/Kolkata"
   status: { type: String, enum: ['scheduled', 'waiting_for_host', 'ongoing', 'ended'], default: 'scheduled' },
   
   // Host control settings

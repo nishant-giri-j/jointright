@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaChevronLeft, FaChevronRight, FaPlus, FaClock, FaUsers, FaVideo } from 'react-icons/fa';
+import { formatLocalTime, getUserTimezone } from '../utils/timezone';
 import './Calendar.css';
 
 const Calendar = ({ onCreateMeeting, onJoinMeeting, userEmail }) => {
@@ -39,10 +40,13 @@ const Calendar = ({ onCreateMeeting, onJoinMeeting, userEmail }) => {
   };
 
   const getMeetingsForDate = (date) => {
-    const dateString = date.toDateString();
-    return meetings.filter(meeting => 
-      new Date(meeting.scheduledAt).toDateString() === dateString
-    );
+    // Compare dates using the user's local timezone
+    const tz = getUserTimezone();
+    const dateString = date.toLocaleDateString('en-US', { timeZone: tz });
+    return meetings.filter(meeting => {
+      if (!meeting.scheduledAt) return false;
+      return new Date(meeting.scheduledAt).toLocaleDateString('en-US', { timeZone: tz }) === dateString;
+    });
   };
 
   const isToday = (date) => {
@@ -63,12 +67,8 @@ const Calendar = ({ onCreateMeeting, onJoinMeeting, userEmail }) => {
     setSelectedDate(clickedDate);
   };
 
-  const formatTime = (dateString) => {
-    return new Date(dateString).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
-  };
+  // Uses centralized timezone utility — shows time in user's local timezone
+  const formatTime = (dateString) => formatLocalTime(dateString);
 
   const getStatusColor = (meeting) => {
     const now = new Date();

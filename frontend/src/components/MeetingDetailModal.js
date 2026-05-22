@@ -1,28 +1,15 @@
 import React from 'react';
 import { FaVideo, FaUsers, FaClock, FaCalendar, FaShare, FaPlay, FaCopy, FaTimes, FaEye, FaMicrophone, FaDesktop, FaComments, FaRecordVinyl, FaLock } from 'react-icons/fa';
+import { formatLocalDate, formatLocalTime, getTimezoneLabel } from '../utils/timezone';
 import './MeetingDetailModal.css';
 
 const MeetingDetailModal = ({ meeting, isOpen, onClose, onJoinMeeting, onShareMeeting }) => {
   if (!isOpen || !meeting) return null;
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long',
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-  };
-
-  const formatTime = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: true
-    });
-  };
+  // Uses centralized timezone utility — shows date/time in user's local timezone
+  const formatDate = (dateString) => formatLocalDate(dateString);
+  const formatTime = (dateString) => formatLocalTime(dateString);
+  const tzLabel = getTimezoneLabel();
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
@@ -81,7 +68,7 @@ const MeetingDetailModal = ({ meeting, isOpen, onClose, onJoinMeeting, onShareMe
                 <span>{formatDate(meeting.scheduledAt)}</span>
               </div>
               <div className="info-item">
-                <label>Time</label>
+                <label>Time <span style={{fontSize:'0.7rem',color:'#64748b',fontWeight:'normal'}}>({tzLabel})</span></label>
                 <span>{formatTime(meeting.scheduledAt)}</span>
               </div>
               <div className="info-item">

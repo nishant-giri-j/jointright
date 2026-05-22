@@ -29,7 +29,7 @@ const generateMeetingId = () => {
 // Create a meeting
 export const createMeeting = async (req, res) => {
   try {
-    const { title, password, creator, description, settings, participants, scheduledAt } = req.body;
+    const { title, password, creator, description, settings, participants, scheduledAt, creatorTimezone } = req.body;
 
     // Input validation - only basic fields required
     if (!title || !password || !creator) {
@@ -71,7 +71,8 @@ export const createMeeting = async (req, res) => {
       meetingId,
       creator,
       hostId: creatorUser._id,
-      scheduledAt: scheduledAt ? new Date(scheduledAt) : null, // Optional for notifications only
+      scheduledAt: scheduledAt ? new Date(scheduledAt) : null, // Stored as UTC
+      creatorTimezone: creatorTimezone || 'UTC', // IANA timezone, e.g. "Asia/Kolkata"
       description: description?.trim() || '',
       status: 'scheduled',
       participants: participants || [creator],

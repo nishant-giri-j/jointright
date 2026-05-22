@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   FaVideo, FaPlus, FaCalendar, FaClock, FaUsers, FaCopy, FaPlay, FaShare, 
@@ -15,6 +15,15 @@ import { useUI } from '../contexts/UIContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { buildApiUrl } from '../config/api';
 import sessionManager, { IsolatedSocket, IsolatedPeer } from '../utils/sessionIsolation';
+import {
+  getUserTimezone,
+  getTimezoneLabel,
+  toDatetimeLocalString,
+  datetimeLocalToUTC,
+  formatLocalDateTime,
+  formatLocalTime,
+  formatLocalDate
+} from '../utils/timezone';
 import './dashboard.css';
 
 const Dashboard = () => {
@@ -60,6 +69,10 @@ const Dashboard = () => {
   ]);
   
   const userEmail = user?.email || localStorage.getItem("email");
+
+  // Detect and store user's timezone once on mount
+  const [userTimezone] = useState(() => getUserTimezone());
+  const [timezoneLabel] = useState(() => getTimezoneLabel());
 
   // Initialize session manager when component mounts
   useEffect(() => {
@@ -487,19 +500,18 @@ const Dashboard = () => {
       
       const apiUrl = buildApiUrl("/api/meetings/create");
 
-      // TIMEZONE FIX: datetime-local input gives "YYYY-MM-DDTHH:mm" with NO timezone.
-      // new Date("YYYY-MM-DDTHH:mm") treats it as LOCAL time in browsers, so
-      // calling .toISOString() correctly converts local → UTC for the backend.
-      const scheduledAtUTC = scheduledAt ? new Date(scheduledAt).toISOString() : scheduledAt;
+      // TIMEZONE: convert the datetime-local string (local time, no TZ) → UTC ISO for backend
+      const scheduledAtUTC = datetimeLocalToUTC(scheduledAt);
 
       const requestBody = {
         title: title.trim(), 
         password: password.trim(), 
         description: description ? description.trim() : '',
         scheduledAt: scheduledAtUTC,
+        creatorTimezone: userTimezone,  // Send the detected IANA timezone
         creator: userEmail,
         settings,
-        sessionId: sessionManager.sessionId // Include session ID in request
+        sessionId: sessionManager.sessionId
       };
       
       console.log('Creating meeting with URL:', apiUrl);
@@ -605,10 +617,7 @@ const Dashboard = () => {
   };
 
   // Helper: convert a Date to the "YYYY-MM-DDTHH:mm" local format required by datetime-local inputs
-  const toLocalDatetimeString = (date) => {
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-  };
+  const toLocalDatetimeString = (date) => toDatetimeLocalString(date);
 
   const handleCreateMeeting = (selectedDate = null) => {
     if (selectedDate) {
@@ -625,9 +634,7 @@ const Dashboard = () => {
     setShowCreateModal(true);
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString();
-  };
+  const formatDate = (dateString) => formatLocalDateTime(dateString);
 
 
   // Lock/unlock body scroll when modal is open
@@ -1506,7 +1513,7 @@ const Dashboard = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Schedule Time *</label>
+                  <label>Schedule Time * <span style={{fontSize:'0.75rem', color:'#64748b', fontWeight:'normal'}}>({timezoneLabel})</span></label>
                   <input 
                     type="datetime-local" 
                     value={scheduledAt} 
