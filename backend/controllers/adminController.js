@@ -1,5 +1,5 @@
 import User from '../models/user.js';
-import CyberScore from '../models/CyberScore.js';
+import CyberScore from '../models/cyberScore.js';
 import logger from '../utils/logger.js';
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';

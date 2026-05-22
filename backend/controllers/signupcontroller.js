@@ -4,6 +4,7 @@ import { sendEmail } from "../utils/sendemail.js";
 import bcrypt from "bcryptjs";
 import logger from "../utils/logger.js";
 import { generateToken } from "../middleware/auth.js";
+import CyberScore from "../models/cyberScore.js";
 
 // Password strength validation
 const validatePasswordStrength = (password) => {
@@ -232,6 +233,15 @@ export const verifySignup = async (req, res) => {
     });
     
     await newUser.save();
+
+    // Initialize Cyber Score for the new user
+    try {
+      const cyberScore = new CyberScore({ userId: newUser._id });
+      await cyberScore.save();
+      logger.info(`Cyber Score initialized for user: ${normalizedEmail}`);
+    } catch (cyberScoreError) {
+      logger.error('Failed to initialize cyber score during signup:', cyberScoreError);
+    }
     
     // Clean up temporary OTP record
     await TempOtp.deleteOne({ email: normalizedEmail });

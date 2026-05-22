@@ -1,4 +1,4 @@
-import CyberScore from '../models/CyberScore.js';
+import CyberScore from '../models/cyberScore.js';
 import mongoose from 'mongoose';
 
 class MeetingAnalyticsService {

@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Import the models
-import CyberScore from './models/CyberScore.js';
+import CyberScore from './models/cyberScore.js';
 import User from './models/user.js';
 
 const checkCyberScores = async () => {

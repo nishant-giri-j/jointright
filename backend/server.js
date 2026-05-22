@@ -26,6 +26,9 @@ import waitingRoomRoutes from "./routes/waitingRoomRoutes.js";
 import contactRoutes from "./routes/contact.js";
 import profileRoutes from "./routes/profileRoutes.js";
 import notificationRoutes from "./routes/notifications.js";
+import Meeting from "./models/meeting.js";
+import User from "./models/user.js";
+import CyberScore from "./models/cyberScore.js";
 
 dotenv.config();
 
@@ -57,11 +60,43 @@ app.get("/health", (req, res) => {
   res.status(200).send("OK");
 });
 
+/* ------------------ API HEALTH CHECK ------------------ */
+app.get("/api/health", async (req, res) => {
+  try {
+    const dbStatus = mongoose.connection.readyState === 1 ? "connected" : "disconnected";
+    let collectionsCount = 0;
+    if (dbStatus === "connected") {
+      const collections = await mongoose.connection.db.listCollections().toArray();
+      collectionsCount = collections.length;
+    }
+    res.status(200).json({
+      status: "OK",
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || "development",
+      database: {
+        status: dbStatus,
+        name: mongoose.connection.name || "jointright",
+        collections: collectionsCount
+      },
+      memory: {
+        heapUsed: process.memoryUsage().heapUsed,
+        heapTotal: process.memoryUsage().heapTotal
+      }
+    });
+  } catch (error) {
+    logger.error("API Health Check failed", error);
+    res.status(500).json({
+      status: "ERROR",
+      message: error.message
+    });
+  }
+});
+
 /* ------------------ RATE LIMITING ------------------ */
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
-  skip: (req) => req.path === "/health",
+  skip: (req) => req.path === "/health" || req.path === "/api/health",
 });
 app.use(limiter);
 
@@ -91,32 +126,314 @@ const io = new Server(httpServer, {
   },
 });
 
-// Track which users are in which rooms
-const roomParticipants = new Map(); // roomId -> Set of socket ids
+// Set global Socket.io instance on app
+app.set("io", io);
+
+// Track active room participants in-memory
+// roomId -> Map of socketId -> { socketId, userId, userName, isHost, cyberScore, isAudioOn, isVideoOn }
+const activeRooms = new Map();
+
+// Track in-memory waiting rooms
+// roomId -> Map of socketId -> { socketId, userId, userName, cyberScore, joinedAt }
+const waitingRoomsMemory = new Map();
+
+// Track admitted users (by userId) to bypass waiting room on reconnection
+// roomId -> Set of userIds
+const admittedUsersMemory = new Map();
+
+const updateHostsWaitingList = (roomId) => {
+  const waitingList = Array.from(waitingRoomsMemory.get(roomId)?.values() || []);
+  const hosts = Array.from(activeRooms.get(roomId)?.values() || []).filter(p => p.isHost);
+  
+  for (const host of hosts) {
+    io.to(host.socketId).emit("waiting-participants-update", waitingList);
+    io.to(host.socketId).emit("waiting-participants-list", waitingList);
+  }
+};
 
 io.on("connection", (socket) => {
   logger.info(`Socket connected: ${socket.id}`);
 
   // Join a meeting room
-  socket.on("join-room", ({ roomId, userId, userName }) => {
-    socket.join(roomId);
+  socket.on("join-room", async ({ roomId, userId, userName }) => {
+    try {
+      socket.roomId = roomId;
+      socket.userId = userId;
+      socket.userName = userName;
+      socket.isAdmitted = false;
+      socket.isHost = false;
 
-    // Track participant
-    if (!roomParticipants.has(roomId)) {
-      roomParticipants.set(roomId, new Set());
+      // 1. Fetch meeting & check host status
+      const meeting = await Meeting.findOne({ meetingId: roomId });
+      if (!meeting) {
+        logger.warn(`join-room: Meeting not found for id ${roomId}`);
+        socket.emit("rejected-from-meeting", { message: "Meeting not found" });
+        return;
+      }
+
+      // Check if user is the host/creator
+      let isHost = false;
+      const userDoc = await User.findOne({ 
+        $or: [
+          { email: userId }, 
+          { email: userName },
+          { _id: mongoose.isValidObjectId(userId) ? userId : new mongoose.Types.ObjectId() }
+        ] 
+      });
+
+      if (userDoc) {
+        isHost = meeting.creator === userDoc.email || (meeting.hostId && meeting.hostId.equals(userDoc._id));
+      }
+
+      socket.isHost = isHost;
+
+      // Fetch user's cyberScore
+      let cyberScoreData = { score: 85, level: 'good', totalMeetings: 0, isRestricted: false };
+      if (userDoc) {
+        let dbScore = await CyberScore.findOne({ userId: userDoc._id });
+        if (!dbScore) {
+          dbScore = new CyberScore({ userId: userDoc._id });
+          await dbScore.save();
+        }
+        const trust = dbScore.getTrustIndicator();
+        cyberScoreData = {
+          score: trust.score,
+          level: trust.level,
+          totalMeetings: trust.totalMeetings,
+          isRestricted: trust.isRestricted
+        };
+      }
+      socket.cyberScore = cyberScoreData;
+
+      // Send host status to the socket
+      socket.emit("host-status", {
+        isHost,
+        meetingStarted: meeting.status === "ongoing",
+        isAdmitted: isHost || !meeting.hostControls?.requireHostApproval
+      });
+
+      // 2. Handle Waiting Room Logic
+      const requireApproval = meeting.hostControls?.requireHostApproval;
+      
+      // Initialize room memory
+      if (!activeRooms.has(roomId)) {
+        activeRooms.set(roomId, new Map());
+      }
+      if (!waitingRoomsMemory.has(roomId)) {
+        waitingRoomsMemory.set(roomId, new Map());
+      }
+      if (!admittedUsersMemory.has(roomId)) {
+        admittedUsersMemory.set(roomId, new Set());
+      }
+
+      const roomAdmitted = admittedUsersMemory.get(roomId);
+
+      if (isHost) {
+        socket.isAdmitted = true;
+        roomAdmitted.add(userId);
+      } else if (!requireApproval) {
+        socket.isAdmitted = true;
+        roomAdmitted.add(userId);
+      } else if (roomAdmitted.has(userId)) {
+        socket.isAdmitted = true;
+      }
+
+      if (!socket.isAdmitted) {
+        logger.info(`User ${userName} added to waiting room for meeting ${roomId}`);
+        
+        waitingRoomsMemory.get(roomId).set(socket.id, {
+          socketId: socket.id,
+          userId,
+          userName,
+          cyberScore: cyberScoreData,
+          joinedAt: new Date()
+        });
+
+        socket.emit("waiting-room-status", {
+          inWaitingRoom: true,
+          message: "Waiting for host to admit you..."
+        });
+
+        updateHostsWaitingList(roomId);
+        return;
+      }
+
+      // 3. User is Admitted: Join the Room
+      socket.join(roomId);
+      activeRooms.get(roomId).set(socket.id, {
+        socketId: socket.id,
+        userId,
+        userName,
+        isHost,
+        cyberScore: cyberScoreData,
+        isAudioOn: true,
+        isVideoOn: true
+      });
+
+      logger.info(`User ${userName} (${userId}) joined room: ${roomId} as ${isHost ? 'host' : 'participant'}`);
+
+      // Confirm admission
+      socket.emit("admitted-to-meeting");
+
+      // Notify other clients that this user joined
+      socket.to(roomId).emit("user-connected", {
+        socketId: socket.id,
+        userId,
+        userName,
+        isHost,
+        cyberScore: cyberScoreData
+      });
+
+      // Send the list of existing active participants to this client
+      const existingUsers = [];
+      for (const [sid, p] of activeRooms.get(roomId).entries()) {
+        if (sid !== socket.id) {
+          existingUsers.push(p);
+        }
+      }
+      socket.emit("existing-users", existingUsers);
+
+      // If meeting was not started yet and this is the host, mark as started
+      if (isHost && meeting.status === "scheduled") {
+        meeting.status = "ongoing";
+        meeting.startedAt = new Date();
+        await meeting.save();
+        socket.to(roomId).emit("meeting-started");
+      }
+
+    } catch (err) {
+      logger.error(`Error in join-room socket: ${err.message}`);
     }
-    roomParticipants.get(roomId).add(socket.id);
+  });
 
-    logger.info(`User ${userName} (${userId}) joined room: ${roomId}`);
+  // Admit participant (host control)
+  socket.on("admit-participant", ({ participantId, roomId }) => {
+    try {
+      if (!socket.isHost) {
+        logger.warn(`Non-host ${socket.userName} tried to admit participant`);
+        return;
+      }
 
-    // Notify others in the room
-    socket.to(roomId).emit("user-joined", { userId, userName, socketId: socket.id });
+      const waitingRoom = waitingRoomsMemory.get(roomId);
+      const participant = waitingRoom?.get(participantId);
 
-    // Send current participants list to the new joiner
-    const participants = [...(roomParticipants.get(roomId) || [])].filter(
-      (id) => id !== socket.id
-    );
-    socket.emit("room-participants", { participants });
+      if (participant) {
+        waitingRoom.delete(participantId);
+        admittedUsersMemory.get(roomId).add(participant.userId);
+
+        const clientSocket = io.sockets.sockets.get(participantId);
+        if (clientSocket) {
+          clientSocket.join(roomId);
+          clientSocket.isAdmitted = true;
+          clientSocket.emit("admitted-to-meeting");
+
+          activeRooms.get(roomId).set(participantId, {
+            socketId: participantId,
+            userId: participant.userId,
+            userName: participant.userName,
+            isHost: false,
+            cyberScore: participant.cyberScore,
+            isAudioOn: true,
+            isVideoOn: true
+          });
+
+          clientSocket.to(roomId).emit("user-connected", {
+            socketId: participantId,
+            userId: participant.userId,
+            userName: participant.userName,
+            isHost: false,
+            cyberScore: participant.cyberScore
+          });
+
+          const existingUsers = [];
+          for (const [sid, p] of activeRooms.get(roomId).entries()) {
+            if (sid !== participantId) {
+              existingUsers.push(p);
+            }
+          }
+          clientSocket.emit("existing-users", existingUsers);
+        }
+
+        updateHostsWaitingList(roomId);
+      }
+    } catch (err) {
+      logger.error(`Error in admit-participant: ${err.message}`);
+    }
+  });
+
+  // Reject participant (host control)
+  socket.on("reject-participant", ({ participantId, roomId }) => {
+    try {
+      if (!socket.isHost) {
+        logger.warn(`Non-host ${socket.userName} tried to reject participant`);
+        return;
+      }
+
+      const waitingRoom = waitingRoomsMemory.get(roomId);
+      const participant = waitingRoom?.get(participantId);
+
+      if (participant) {
+        waitingRoom.delete(participantId);
+
+        const clientSocket = io.sockets.sockets.get(participantId);
+        if (clientSocket) {
+          clientSocket.emit("rejected-from-meeting", { message: "The host has denied your request to join." });
+          clientSocket.emit("admission-rejected", { message: "The host has denied your request to join." });
+        }
+
+        updateHostsWaitingList(roomId);
+      }
+    } catch (err) {
+      logger.error(`Error in reject-participant: ${err.message}`);
+    }
+  });
+
+  // Host Mute Participant
+  socket.on("host-mute-participant", ({ participantId, roomId, hostName }) => {
+    if (!socket.isHost) return;
+    io.to(participantId).emit("host-muted-you", { hostName });
+  });
+
+  // Host Disable Video
+  socket.on("host-disable-video", ({ participantId, roomId, hostName }) => {
+    if (!socket.isHost) return;
+    io.to(participantId).emit("host-disabled-your-video", { hostName });
+  });
+
+  // Host Remove Participant
+  socket.on("host-remove-participant", ({ participantId, roomId, hostName, reason }) => {
+    if (!socket.isHost) return;
+    io.to(participantId).emit("host-removed-you", { hostName, reason });
+    
+    const targetSocket = io.sockets.sockets.get(participantId);
+    if (targetSocket) {
+      targetSocket.leave(roomId);
+      targetSocket.isAdmitted = false;
+    }
+    
+    if (activeRooms.has(roomId)) {
+      activeRooms.get(roomId).delete(participantId);
+    }
+    
+    socket.to(roomId).emit("user-disconnected", { socketId: participantId });
+    socket.to(roomId).emit("user-left", { socketId: participantId });
+  });
+
+  // Host Mute All
+  socket.on("host-mute-all", ({ roomId, hostName }) => {
+    if (!socket.isHost) return;
+    socket.to(roomId).emit("host-muted-all", { hostName });
+  });
+
+  // Host Disable All Videos
+  socket.on("host-disable-all-videos", ({ roomId, hostName }) => {
+    if (!socket.isHost) return;
+    socket.to(roomId).emit("host-disabled-all-videos", { hostName });
+  });
+
+  // WebRTC Signaling: Signal (Simple Peer uses this)
+  socket.on("signal", ({ to, signal }) => {
+    io.to(to).emit("signal", { from: socket.id, signal });
   });
 
   // WebRTC Signaling: Offer
@@ -135,56 +452,151 @@ io.on("connection", (socket) => {
   });
 
   // Chat message in room
-  socket.on("chat-message", ({ roomId, message, userId, userName }) => {
-    io.to(roomId).emit("chat-message", {
-      message,
-      userId,
-      userName,
-      timestamp: new Date().toISOString(),
-    });
+  socket.on("chat-message", async (data) => {
+    const roomId = socket.roomId;
+    if (!roomId) return;
+    
+    const messageData = {
+      sender: data.sender || socket.userName,
+      message: data.message,
+      type: data.type || 'text',
+      time: data.time || new Date().toISOString(),
+      id: data.id || (Date.now() + Math.random())
+    };
+
+    io.to(roomId).emit("chat-message", messageData);
+
+    try {
+      await Meeting.updateOne(
+        { meetingId: roomId },
+        { 
+          $push: { 
+            chatHistory: { 
+              sender: messageData.sender, 
+              message: messageData.message, 
+              type: messageData.type, 
+              time: new Date(messageData.time) 
+            } 
+          } 
+        }
+      );
+    } catch (err) {
+      logger.error(`Error saving chat to database: ${err.message}`);
+    }
   });
 
-  // Screen sharing started
-  socket.on("screen-share-started", ({ roomId, userId }) => {
-    socket.to(roomId).emit("screen-share-started", { userId, socketId: socket.id });
+  // Typing indicators
+  socket.on("typing-start", () => {
+    if (socket.roomId) {
+      socket.to(socket.roomId).emit("user-typing", { userId: socket.id, userName: socket.userName });
+    }
   });
 
-  // Screen sharing stopped
-  socket.on("screen-share-stopped", ({ roomId, userId }) => {
-    socket.to(roomId).emit("screen-share-stopped", { userId, socketId: socket.id });
+  socket.on("typing-stop", () => {
+    if (socket.roomId) {
+      socket.to(socket.roomId).emit("user-stop-typing", { userId: socket.id });
+    }
   });
 
-  // Waiting room events
-  socket.on("waiting-room-update", ({ roomId, participants }) => {
-    socket.to(roomId).emit("waiting-room-update", { participants });
+  // Emoji reactions
+  socket.on("emoji-reaction", (data) => {
+    if (socket.roomId) {
+      socket.to(socket.roomId).emit("emoji-reaction", { emojiData: data.emojiData });
+    }
   });
 
-  // Raise hand
+  socket.on("reaction", (reaction) => {
+    if (socket.roomId) {
+      socket.to(socket.roomId).emit("reaction", reaction);
+    }
+  });
+
+  // Hand raise
+  socket.on("hand-raise-toggle", (isHandRaised) => {
+    if (socket.roomId) {
+      io.to(socket.roomId).emit("user-hand-raise", { socketId: socket.id, userName: socket.userName, isHandRaised });
+    }
+  });
+
   socket.on("raise-hand", ({ roomId, userId, userName }) => {
     socket.to(roomId).emit("raise-hand", { userId, userName, socketId: socket.id });
   });
 
-  // Mute/unmute notification
+  // Audio/Video toggle status from participants
+  socket.on("toggle-audio", (isAudioOn) => {
+    if (socket.roomId) {
+      socket.to(socket.roomId).emit("user-toggle-audio", { socketId: socket.id, isAudioOn });
+    }
+  });
+
   socket.on("mute-status", ({ roomId, userId, isMuted }) => {
     socket.to(roomId).emit("mute-status", { userId, isMuted, socketId: socket.id });
   });
 
-  // Video on/off notification
+  socket.on("toggle-video", (isVideoOn) => {
+    if (socket.roomId) {
+      socket.to(socket.roomId).emit("user-toggle-video", { socketId: socket.id, isVideoOn });
+    }
+  });
+
   socket.on("video-status", ({ roomId, userId, isVideoOn }) => {
     socket.to(roomId).emit("video-status", { userId, isVideoOn, socketId: socket.id });
   });
 
-  // Handle disconnect
+  // Screen sharing
+  socket.on("start-screen-share", (data) => {
+    if (socket.roomId) {
+      socket.to(socket.roomId).emit("user-screen-share", {
+        socketId: socket.id,
+        userName: socket.userName,
+        hasCamera: data?.hasCamera || false,
+        isVideoOn: data?.isVideoOn || false
+      });
+    }
+  });
+
+  // Screen sharing started (legacy support)
+  socket.on("screen-share-started", ({ roomId, userId }) => {
+    socket.to(roomId).emit("screen-share-started", { userId, socketId: socket.id });
+  });
+
+  socket.on("stop-screen-share", () => {
+    if (socket.roomId) {
+      socket.to(socket.roomId).emit("user-stop-screen-share", { socketId: socket.id, userName: socket.userName });
+    }
+  });
+
+  // Screen sharing stopped (legacy support)
+  socket.on("screen-share-stopped", ({ roomId, userId }) => {
+    socket.to(roomId).emit("screen-share-stopped", { userId, socketId: socket.id });
+  });
+
+  // Cyber score room join
+  socket.on("join-cyber-score-room", ({ userId }) => {
+    socket.join(`cyber-score-${userId}`);
+    logger.info(`Socket ${socket.id} joined cyber-score room for user ${userId}`);
+  });
+
   socket.on("disconnect", () => {
     logger.info(`Socket disconnected: ${socket.id}`);
+    const roomId = socket.roomId;
 
-    // Remove from all rooms
-    for (const [roomId, participants] of roomParticipants.entries()) {
-      if (participants.has(socket.id)) {
-        participants.delete(socket.id);
+    if (roomId) {
+      if (waitingRoomsMemory.has(roomId)) {
+        waitingRoomsMemory.get(roomId).delete(socket.id);
+        updateHostsWaitingList(roomId);
+      }
+
+      if (activeRooms.has(roomId)) {
+        activeRooms.get(roomId).delete(socket.id);
+        
+        socket.to(roomId).emit("user-disconnected", { socketId: socket.id });
         socket.to(roomId).emit("user-left", { socketId: socket.id });
-        if (participants.size === 0) {
-          roomParticipants.delete(roomId);
+        
+        if (activeRooms.get(roomId).size === 0) {
+          activeRooms.delete(roomId);
+          waitingRoomsMemory.delete(roomId);
+          admittedUsersMemory.delete(roomId);
         }
       }
     }

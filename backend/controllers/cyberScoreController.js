@@ -1,4 +1,4 @@
-import CyberScore, { incidentTypes } from '../models/CyberScore.js';
+import CyberScore, { incidentTypes } from '../models/cyberScore.js';
 import User from '../models/user.js';
 import MeetingAnalyticsService from '../services/meetingAnalyticsService.js';
 
