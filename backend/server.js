@@ -48,25 +48,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({
   origin: function (origin, callback) {
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const altUrl = process.env.FRONTEND_URL_ALT || 'http://localhost:3001';
-    
-    // Check if wildcard '*' is defined
-    if (frontendUrl === '*' || altUrl === '*') {
-      callback(null, true);
-      return;
-    }
-
-    const allowedOrigins = [
-      ...frontendUrl.split(',').map(o => o.trim()),
-      ...altUrl.split(',').map(o => o.trim())
-    ];
-
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
+    // Dynamically allow all origins to support Vercel preview URLs and local development seamlessly
+    callback(null, true);
   },
   credentials: true
 }));
