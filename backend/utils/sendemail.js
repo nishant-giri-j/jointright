@@ -2,38 +2,7 @@ import nodemailer from "nodemailer";
 import fetch from "node-fetch";
 
 export const sendEmail = async (to, subject, content, isHtml = true) => {
-  // ─── TRIPLE MODE: BREVO HTTP API (REAL EMAILS TO ANYONE - NO DOMAIN NEEDED) ────
-  if (process.env.BREVO_API_KEY) {
-    const senderEmail = process.env.BREVO_SENDER_EMAIL || 'giri.nishant2005@gmail.com';
-    
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'accept': 'application/json',
-        'api-key': process.env.BREVO_API_KEY,
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify({
-        sender: {
-          name: "JointRight",
-          email: senderEmail
-        },
-        to: [{ email: to }],
-        subject: subject,
-        htmlContent: isHtml ? content : undefined,
-        textContent: isHtml ? content.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() : content
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`Brevo API failed: ${errorData.message || response.statusText}`);
-    }
-    
-    return;
-  }
-
-  // ─── TRIPLE MODE: RESEND HTTP API (FOR RENDER FREE TIER) ────────────────────────
+  // ─── DUAL MODE: RESEND HTTP API (FOR RENDER FREE TIER) ────────────────────────
   if (process.env.RESEND_API_KEY) {
     const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
     
@@ -60,7 +29,7 @@ export const sendEmail = async (to, subject, content, isHtml = true) => {
     return;
   }
 
-  // ─── TRIPLE MODE: STANDARD SMTP (FOR LOCALHOST DEVELOPMENT) ────────────────────
+  // ─── DUAL MODE: STANDARD SMTP (FOR LOCALHOST DEVELOPMENT) ────────────────────
   const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 587,
