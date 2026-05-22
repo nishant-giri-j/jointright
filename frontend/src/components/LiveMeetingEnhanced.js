@@ -105,6 +105,11 @@ const EnhancedVideoTile = React.memo(({
       const handleStream = (stream) => {
         if (ref.current) {
           ref.current.srcObject = stream;
+          // Explicitly call play to handle browser autoplay policies gracefully
+          ref.current.play().catch(e => {
+            console.warn('Autoplay prevented by browser policy:', e);
+            // Optionally, we could show an "unmute to play" overlay here if needed
+          });
           setIsLoading(false);
           setHasError(false);
         }
@@ -278,6 +283,7 @@ const EnhancedLiveMeeting = ({
 
   // Refs
   const socketRef = useRef();
+  const audioContextRef = useRef(null);
   const userVideo = useRef();
   const cameraVideo = useRef();
   const screenShareVideo = useRef();
@@ -464,6 +470,21 @@ const EnhancedLiveMeeting = ({
 
     try {
       showNotification("Initializing audio and video tracks...", "info", 2000);
+      
+      // Initialize AudioContext to handle browser Autoplay policies securely
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx && !audioContextRef.current) {
+          audioContextRef.current = new AudioCtx();
+        }
+        
+        // CRITICAL: Browsers require a user gesture to resume AudioContext
+        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+          await audioContextRef.current.resume().catch(e => console.warn('AudioContext resume failed:', e));
+        }
+      } catch (audioCtxError) {
+        console.warn('Could not initialize AudioContext:', audioCtxError);
+      }
       
       // Get user media with robust resolution-matching constraints
       let stream;
@@ -1047,6 +1068,12 @@ const EnhancedLiveMeeting = ({
     setIsAudioOn(newState);
     if (newState) setHostMutedAudio(false); // clear host-muted flag when manually unmuting
     socketRef.current?.emit('toggle-audio', newState);
+    
+    // User gesture occurred: ensure AudioContext is resumed
+    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume().catch(e => console.warn('AudioContext resume failed:', e));
+    }
+    
     if (navigator.vibrate) navigator.vibrate(50);
   }, [isAudioOn, userStream, showNotification, isHost, roomSecurity.allowUnmute]);
 
@@ -1107,6 +1134,11 @@ const EnhancedLiveMeeting = ({
       }
       
       if (navigator.vibrate) navigator.vibrate(50);
+      
+      // User gesture occurred: ensure AudioContext is resumed
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume().catch(e => console.warn('AudioContext resume failed:', e));
+      }
     } catch (err) {
       console.error("Error toggling video track:", err);
       showNotification("Could not start camera. Make sure it isn't in use by another app.", "error");
@@ -2059,6 +2091,7 @@ const EnhancedLiveMeeting = ({
     if (userVideo.current && userStream) {
       if (userVideo.current.srcObject !== userStream) {
         userVideo.current.srcObject = userStream;
+        userVideo.current.play().catch(e => console.warn('Local video autoplay prevented:', e));
       }
     }
   }, [meetingState, userStream, isVideoOn, viewMode, isScreenSharing]);
@@ -2068,6 +2101,7 @@ const EnhancedLiveMeeting = ({
     if (screenShareVideo.current && screenStream) {
       if (screenShareVideo.current.srcObject !== screenStream) {
         screenShareVideo.current.srcObject = screenStream;
+        screenShareVideo.current.play().catch(e => console.warn('Screen share autoplay prevented:', e));
       }
     }
   }, [meetingState, screenStream, isScreenSharing, viewMode]);
