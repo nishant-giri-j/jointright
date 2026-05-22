@@ -598,19 +598,69 @@ io.on("connection", (socket) => {
     io.to(to).emit("signal", { from: socket.id, signal });
   });
 
-  // WebRTC Signaling: Offer
-  socket.on("offer", ({ roomId, targetId, offer }) => {
-    socket.to(targetId).emit("offer", { from: socket.id, offer });
+  // ── SFU-Pattern Signaling Relay ───────────────────────────────────────────
+  // These dedicated events carry structured offer/answer frames in the
+  // SFU signaling pattern (one upstream → server hub → multiple downstreams).
+  // Keeping them separate from the legacy "signal" catch-all lets a real
+  // LiveKit / Mediasoup SDK slot in here without touching legacy peer logic.
+
+  // SFU Offer: initiator → server → target
+  socket.on("sfu-offer", ({ to, from, signal }) => {
+    if (!to) return;
+    io.to(to).emit("sfu-offer", { from: from || socket.id, signal });
+    logger.info(`[SFU] offer relayed ${socket.id} → ${to}`);
   });
 
-  // WebRTC Signaling: Answer
-  socket.on("answer", ({ roomId, targetId, answer }) => {
-    socket.to(targetId).emit("answer", { from: socket.id, answer });
+  // SFU Answer: responder → server → initiator
+  socket.on("sfu-answer", ({ to, from, signal }) => {
+    if (!to) return;
+    io.to(to).emit("sfu-answer", { from: from || socket.id, signal });
+    logger.info(`[SFU] answer relayed ${socket.id} → ${to}`);
   });
 
-  // WebRTC Signaling: ICE Candidate
-  socket.on("ice-candidate", ({ roomId, targetId, candidate }) => {
-    socket.to(targetId).emit("ice-candidate", { from: socket.id, candidate });
+  // SFU ICE Candidate relay (dedicated path for SFU-pattern trickling)
+  socket.on("sfu-ice-candidate", ({ to, candidate }) => {
+    if (!to) return;
+    io.to(to).emit("sfu-ice-candidate", { from: socket.id, candidate });
+  });
+
+  // ── ICE Restart Relay ─────────────────────────────────────────────────────
+  // When a client detects a 'disconnected' ICE state (after the 3-second
+  // timer in useICERestartManager), it emits ice-restart-offer.
+  // The server relays this to the target peer as ice-restart-request,
+  // which prompts the remote side to also call restartIce() symmetrically.
+  socket.on("ice-restart-offer", ({ targetPeerID }) => {
+    if (!targetPeerID) return;
+    logger.info(`[ICE Restart] ${socket.id} → ${targetPeerID}`);
+    io.to(targetPeerID).emit("ice-restart-request", { fromPeerID: socket.id });
+  });
+
+  // ── Network Stats Relay ───────────────────────────────────────────────────
+  // Participants broadcast their getStats() summary every 2 seconds.
+  // The server relays it to the host(s) of the room for centralized
+  // quality monitoring (useful for a future host dashboard).
+  socket.on("network-stats", ({ roomId: statsRoomId, stats }) => {
+    const rid = statsRoomId || socket.roomId;
+    if (!rid) return;
+    const allSockets = Array.from(io.sockets.sockets.values());
+    const hosts = allSockets.filter(s => s.roomId === rid && s.isHost && s.id !== socket.id);
+    for (const host of hosts) {
+      io.to(host.id).emit("participant-network-stats", {
+        socketId: socket.id,
+        userName: socket.userName,
+        stats
+      });
+    }
+  });
+
+  // ── Simulcast Layer Switch Request ────────────────────────────────────────
+  // SFU adapter hook: a receiver requests the sender to activate a specific
+  // simulcast layer. In a real SFU this would be handled server-side;
+  // here we relay the request to the sender so it can call switchSimulcastLayer.
+  socket.on("request-layer-switch", ({ targetSenderID, rid }) => {
+    if (!targetSenderID || !rid) return;
+    logger.info(`[Simulcast] Layer switch request: ${socket.id} → ${targetSenderID} (rid: ${rid})`);
+    io.to(targetSenderID).emit("layer-switch-requested", { fromID: socket.id, rid });
   });
 
   // Chat message in room

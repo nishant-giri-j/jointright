@@ -10289,3 +10289,376 @@
 {"level":"warn","message":"MongoDB disconnected","service":"jointright-backend","timestamp":"2026-05-22 13:03:22"}
 {"level":"info","message":"Server running on port 5000","service":"jointright-backend","timestamp":"2026-05-22 14:17:39"}
 {"level":"error","message":"MongoDB connection failed: Could not connect to any servers in your MongoDB Atlas cluster. One common reason is that you're trying to access the database from an IP that isn't whitelisted. Make sure your current IP address is on your Atlas cluster's IP whitelist: https://www.mongodb.com/docs/atlas/security-whitelist/","reason":{"commonWireVersion":0,"compatible":true,"heartbeatFrequencyMS":10000,"localThresholdMS":15,"logicalSessionTimeoutMinutes":null,"maxElectionId":null,"maxSetVersion":null,"servers":{},"setName":"atlas-rixk6p-shard-0","stale":false,"type":"ReplicaSetNoPrimary"},"service":"jointright-backend","stack":"MongooseServerSelectionError: Could not connect to any servers in your MongoDB Atlas cluster. One common reason is that you're trying to access the database from an IP that isn't whitelisted. Make sure your current IP address is on your Atlas cluster's IP whitelist: https://www.mongodb.com/docs/atlas/security-whitelist/\n    at _handleConnectionErrors (C:\\Users\\UDB\\Desktop\\jointright\\backend\\node_modules\\mongoose\\lib\\connection.js:816:11)\n    at NativeConnection.openUri (C:\\Users\\UDB\\Desktop\\jointright\\backend\\node_modules\\mongoose\\lib\\connection.js:791:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async connectDB (file:///C:/Users/UDB/Desktop/jointright/backend/config/db.js:17:18)","timestamp":"2026-05-22 14:17:45"}
+{"level":"info","message":"Server running on port 5000","service":"jointright-backend","timestamp":"2026-05-22 14:22:01"}
+{"level":"info","message":"✅ MongoDB Connected: ac-t0o44my-shard-00-00.rrwnqur.mongodb.net","service":"jointright-backend","timestamp":"2026-05-22 14:22:02"}
+{"level":"info","message":"MongoDB connected","service":"jointright-backend","timestamp":"2026-05-22 14:22:02"}
+{"level":"info","message":"Successful login: nishantgiri2005@gmail.com","service":"jointright-backend","timestamp":"2026-05-22 14:25:02"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:25:10"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:25:10"}
+{"level":"info","message":"Successful login: nishantgiri2005@gmail.com","service":"jointright-backend","timestamp":"2026-05-22 14:26:16"}
+{"level":"info","message":"Password reset successful: nishantgiri2005@gmail.com","service":"jointright-backend","timestamp":"2026-05-22 14:26:59"}
+{"level":"info","message":"Successful login: nishantgiri2005@gmail.com","service":"jointright-backend","timestamp":"2026-05-22 14:27:08"}
+{"level":"info","message":"Socket connected: hVa6nDZalUTb-E5tAAAB","service":"jointright-backend","timestamp":"2026-05-22 14:27:36"}
+{"level":"info","message":"Socket disconnected: hVa6nDZalUTb-E5tAAAB","service":"jointright-backend","timestamp":"2026-05-22 14:27:36"}
+{"level":"info","message":"Socket connected: MTE19z3uR0fGfFIfAAAD","service":"jointright-backend","timestamp":"2026-05-22 14:27:43"}
+{"level":"info","message":"Socket disconnected: MTE19z3uR0fGfFIfAAAD","service":"jointright-backend","timestamp":"2026-05-22 14:27:44"}
+{"level":"info","message":"Socket connected: h0EhfRlp3apel6NVAAAF","service":"jointright-backend","timestamp":"2026-05-22 14:27:47"}
+{"level":"info","message":"Socket disconnected: h0EhfRlp3apel6NVAAAF","service":"jointright-backend","timestamp":"2026-05-22 14:28:45"}
+{"level":"info","message":"Socket connected: qe_30tXuF5xomsgMAAAH","service":"jointright-backend","timestamp":"2026-05-22 14:28:51"}
+{"level":"info","message":"Socket disconnected: qe_30tXuF5xomsgMAAAH","service":"jointright-backend","timestamp":"2026-05-22 14:28:54"}
+{"level":"info","message":"Meeting created: LJG-489-EHD by nishantgiri2005@gmail.com","service":"jointright-backend","timestamp":"2026-05-22 14:29:53"}
+{"level":"info","message":"User nishantgiri2005@gmail.com joined meeting LJG-489-EHD","service":"jointright-backend","timestamp":"2026-05-22 14:30:26"}
+{"level":"info","message":"Socket connected: ZJ6dCsfkjxW4LwNFAAAJ","service":"jointright-backend","timestamp":"2026-05-22 14:30:32"}
+{"level":"info","message":"User nishant giri (6a100648497112e0b1b1f0b6) joined room: LJG-489-EHD","service":"jointright-backend","timestamp":"2026-05-22 14:30:32"}
+{"level":"info","message":"Socket disconnected: ZJ6dCsfkjxW4LwNFAAAJ","service":"jointright-backend","timestamp":"2026-05-22 14:30:58"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:37:14"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:37:14"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:37:21"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:37:23"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:37:26"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:37:26"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:37:43"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:37:59"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:37:59"}
+{"hostId":"","level":"info","limit":5,"message":"Fetching cyber score reviews with params:","page":1,"service":"jointright-backend","sortBy":"timestamp","sortOrder":"desc","timestamp":"2026-05-22 14:37:59","userId":""}
+{"level":"info","message":"Found 0 reviews out of 0 total","service":"jointright-backend","timestamp":"2026-05-22 14:38:00"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:38:00"}
+{"level":"info","limit":10,"message":"Fetching all user cyber scores:","page":1,"service":"jointright-backend","sortBy":"currentScore","sortOrder":"desc","timestamp":"2026-05-22 14:38:00"}
+{"level":"info","message":"Retrieved 1 cyber scores from database","service":"jointright-backend","timestamp":"2026-05-22 14:38:00"}
+{"level":"info","message":"Found 1 user scores out of 1 total","service":"jointright-backend","timestamp":"2026-05-22 14:38:00"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:38:00"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:38:07"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:38:08"}
+{"hostId":"","level":"info","limit":5,"message":"Fetching cyber score reviews with params:","page":1,"service":"jointright-backend","sortBy":"timestamp","sortOrder":"desc","timestamp":"2026-05-22 14:38:08","userId":""}
+{"level":"info","message":"Found 0 reviews out of 0 total","service":"jointright-backend","timestamp":"2026-05-22 14:38:08"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:38:11"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:38:16"}
+{"level":"info","message":"Fetching meeting history for user 6a100648497112e0b1b1f0b6 (nishantgiri2005@gmail.com)","service":"jointright-backend","timestamp":"2026-05-22 14:38:16"}
+{"level":"info","message":"Meeting stats for user nishantgiri2005@gmail.com: Total=1, Past=1, Future=0","service":"jointright-backend","timestamp":"2026-05-22 14:38:16"}
+{"level":"debug","message":"Sample meeting: {\"id\":\"6a101b096bf195bb4cc985fe\",\"title\":\"hello\",\"scheduledAt\":\"2026-05-22T09:01:00.000Z\",\"status\":\"ongoing\",\"createdAt\":\"2026-05-22T08:59:53.725Z\"}","service":"jointright-backend","timestamp":"2026-05-22 14:38:16"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:38:31"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:39:12"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:39:14"}
+{"hostId":"","level":"info","limit":5,"message":"Fetching cyber score reviews with params:","page":1,"service":"jointright-backend","sortBy":"timestamp","sortOrder":"desc","timestamp":"2026-05-22 14:39:14","userId":""}
+{"level":"info","message":"Found 0 reviews out of 0 total","service":"jointright-backend","timestamp":"2026-05-22 14:39:14"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:39:15"}
+{"level":"info","limit":10,"message":"Fetching all user cyber scores:","page":1,"service":"jointright-backend","sortBy":"currentScore","sortOrder":"desc","timestamp":"2026-05-22 14:39:15"}
+{"level":"info","message":"Retrieved 1 cyber scores from database","service":"jointright-backend","timestamp":"2026-05-22 14:39:15"}
+{"level":"info","message":"Found 1 user scores out of 1 total","service":"jointright-backend","timestamp":"2026-05-22 14:39:15"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:39:15"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:39:24"}
+{"hostId":"","level":"info","limit":20,"message":"Fetching cyber score reviews with params:","page":1,"service":"jointright-backend","sortBy":"timestamp","sortOrder":"desc","timestamp":"2026-05-22 14:39:24","userId":""}
+{"level":"info","message":"Found 0 reviews out of 0 total","service":"jointright-backend","timestamp":"2026-05-22 14:39:24"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:39:25"}
+{"level":"info","limit":1000,"message":"Fetching all user cyber scores:","page":1,"service":"jointright-backend","sortBy":"currentScore","sortOrder":"desc","timestamp":"2026-05-22 14:39:25"}
+{"level":"info","message":"Retrieved 1 cyber scores from database","service":"jointright-backend","timestamp":"2026-05-22 14:39:25"}
+{"level":"info","message":"Found 1 user scores out of 1 total","service":"jointright-backend","timestamp":"2026-05-22 14:39:25"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:39:25"}
+{"hostId":"","level":"info","limit":20,"message":"Fetching cyber score reviews with params:","page":1,"service":"jointright-backend","sortBy":"timestamp","sortOrder":"desc","timestamp":"2026-05-22 14:39:25","userId":""}
+{"level":"info","message":"Found 0 reviews out of 0 total","service":"jointright-backend","timestamp":"2026-05-22 14:39:25"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:39:42"}
+{"hostId":"","level":"info","limit":20,"message":"Fetching cyber score reviews with params:","page":1,"service":"jointright-backend","sortBy":"timestamp","sortOrder":"desc","timestamp":"2026-05-22 14:39:42","userId":"6a100648497112e0b1b1f0b6"}
+{"level":"info","message":"Found 0 reviews out of 0 total","service":"jointright-backend","timestamp":"2026-05-22 14:39:42"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:40:03"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:40:03"}
+{"hostId":"","level":"info","limit":5,"message":"Fetching cyber score reviews with params:","page":1,"service":"jointright-backend","sortBy":"timestamp","sortOrder":"desc","timestamp":"2026-05-22 14:40:03","userId":""}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:40:03"}
+{"level":"info","message":"Found 0 reviews out of 0 total","service":"jointright-backend","timestamp":"2026-05-22 14:40:03"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:40:04"}
+{"level":"info","limit":10,"message":"Fetching all user cyber scores:","page":1,"service":"jointright-backend","sortBy":"currentScore","sortOrder":"desc","timestamp":"2026-05-22 14:40:04"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:40:04"}
+{"hostId":"","level":"info","limit":5,"message":"Fetching cyber score reviews with params:","page":1,"service":"jointright-backend","sortBy":"timestamp","sortOrder":"desc","timestamp":"2026-05-22 14:40:04","userId":""}
+{"level":"info","message":"Found 0 reviews out of 0 total","service":"jointright-backend","timestamp":"2026-05-22 14:40:04"}
+{"level":"info","message":"Retrieved 1 cyber scores from database","service":"jointright-backend","timestamp":"2026-05-22 14:40:04"}
+{"level":"info","message":"Found 1 user scores out of 1 total","service":"jointright-backend","timestamp":"2026-05-22 14:40:04"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:40:04"}
+{"level":"info","message":"Socket connected: gIs9EZXzG481fchNAAAL","service":"jointright-backend","timestamp":"2026-05-22 14:40:30"}
+{"level":"info","message":"Socket disconnected: gIs9EZXzG481fchNAAAL","service":"jointright-backend","timestamp":"2026-05-22 14:40:31"}
+{"level":"info","message":"Socket connected: RI3Z8GyK1aUTBsGLAAAN","service":"jointright-backend","timestamp":"2026-05-22 14:40:37"}
+{"level":"info","message":"Socket disconnected: RI3Z8GyK1aUTBsGLAAAN","service":"jointright-backend","timestamp":"2026-05-22 14:40:41"}
+{"level":"info","message":"Socket connected: 69dDxIfzAPsEtGZuAAAP","service":"jointright-backend","timestamp":"2026-05-22 14:40:45"}
+{"level":"info","message":"Socket disconnected: 69dDxIfzAPsEtGZuAAAP","service":"jointright-backend","timestamp":"2026-05-22 14:40:49"}
+{"level":"info","message":"Socket connected: jOzhHraYA6q7uA9gAAAR","service":"jointright-backend","timestamp":"2026-05-22 14:41:04"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:41:12"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:41:12"}
+{"level":"info","message":"Socket disconnected: jOzhHraYA6q7uA9gAAAR","service":"jointright-backend","timestamp":"2026-05-22 14:41:12"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:41:14"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:41:14"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:41:49"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:41:49"}
+{"level":"warn","message":"MongoDB disconnected","service":"jointright-backend","timestamp":"2026-05-22 14:42:35"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:42:37"}
+{"level":"info","message":"MongoDB reconnected","service":"jointright-backend","timestamp":"2026-05-22 14:42:45"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:42:46"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:42:55"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:42:56"}
+{"level":"info","message":"Admin/Moderator authenticated: nishantgiri2005@gmail.com (admin) from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:42:56"}
+{"level":"info","message":"Admin authenticated: nishantgiri2005@gmail.com from IP: 127.0.0.1","service":"jointright-backend","timestamp":"2026-05-22 14:43:26"}
+{"level":"info","message":"Socket connected: _j5a-nZ8hLDc8ntyAAAT","service":"jointright-backend","timestamp":"2026-05-22 14:43:38"}
+{"level":"info","message":"Socket disconnected: _j5a-nZ8hLDc8ntyAAAT","service":"jointright-backend","timestamp":"2026-05-22 14:43:38"}
+{"level":"info","message":"Socket connected: -3M8V0KWjfqec723AAAV","service":"jointright-backend","timestamp":"2026-05-22 14:43:39"}
+{"level":"info","message":"Socket disconnected: -3M8V0KWjfqec723AAAV","service":"jointright-backend","timestamp":"2026-05-22 14:43:42"}
+{"level":"info","message":"Socket connected: RWLBvPnnG6bmjhIBAAAX","service":"jointright-backend","timestamp":"2026-05-22 14:43:43"}
+{"level":"info","message":"Socket disconnected: RWLBvPnnG6bmjhIBAAAX","service":"jointright-backend","timestamp":"2026-05-22 14:43:44"}
+{"level":"info","message":"Socket connected: gBpafoZXrBUL30O4AAAZ","service":"jointright-backend","timestamp":"2026-05-22 14:43:45"}
+{"level":"info","message":"Socket disconnected: gBpafoZXrBUL30O4AAAZ","service":"jointright-backend","timestamp":"2026-05-22 14:43:45"}
+{"level":"info","message":"Socket connected: WdH6cu_-9XVHM2QeAAAb","service":"jointright-backend","timestamp":"2026-05-22 14:43:45"}
+{"level":"info","message":"Socket disconnected: WdH6cu_-9XVHM2QeAAAb","service":"jointright-backend","timestamp":"2026-05-22 14:43:45"}
+{"level":"info","message":"Socket connected: l5jn42AyUW2Rqzu0AAAd","service":"jointright-backend","timestamp":"2026-05-22 14:43:46"}
+{"level":"info","message":"Socket disconnected: l5jn42AyUW2Rqzu0AAAd","service":"jointright-backend","timestamp":"2026-05-22 14:44:16"}
+{"level":"info","message":"Socket connected: FyQhuAD-lliC2kUoAAAf","service":"jointright-backend","timestamp":"2026-05-22 14:44:16"}
+{"level":"warn","message":"MongoDB disconnected","service":"jointright-backend","timestamp":"2026-05-22 14:44:28"}
+{"level":"info","message":"MongoDB reconnected","service":"jointright-backend","timestamp":"2026-05-22 14:44:29"}
+{"level":"info","message":"Socket disconnected: FyQhuAD-lliC2kUoAAAf","service":"jointright-backend","timestamp":"2026-05-22 14:44:30"}
+{"level":"info","message":"Socket connected: TnJ7lJWqGEgeN0jTAAAh","service":"jointright-backend","timestamp":"2026-05-22 14:44:30"}
+{"level":"info","message":"Socket disconnected: TnJ7lJWqGEgeN0jTAAAh","service":"jointright-backend","timestamp":"2026-05-22 14:44:39"}
+{"level":"info","message":"Socket connected: IvCUk-RevYuapTJBAAAj","service":"jointright-backend","timestamp":"2026-05-22 14:44:39"}
+{"level":"info","message":"Socket disconnected: IvCUk-RevYuapTJBAAAj","service":"jointright-backend","timestamp":"2026-05-22 14:44:39"}
+{"level":"info","message":"Socket connected: br70XRtC616TLizuAAAl","service":"jointright-backend","timestamp":"2026-05-22 14:44:40"}
+{"level":"info","message":"Socket disconnected: br70XRtC616TLizuAAAl","service":"jointright-backend","timestamp":"2026-05-22 14:45:10"}
+{"level":"info","message":"Socket connected: z8sLku-HmKi8Qr1JAAAn","service":"jointright-backend","timestamp":"2026-05-22 14:45:10"}
+{"level":"info","message":"Socket disconnected: z8sLku-HmKi8Qr1JAAAn","service":"jointright-backend","timestamp":"2026-05-22 14:45:41"}
+{"level":"info","message":"Socket connected: 5seDB7SP5zUHWU05AAAp","service":"jointright-backend","timestamp":"2026-05-22 14:45:41"}
+{"level":"info","message":"Socket disconnected: 5seDB7SP5zUHWU05AAAp","service":"jointright-backend","timestamp":"2026-05-22 14:45:41"}
+{"level":"info","message":"Socket connected: 5HDJLpOF7fMfVfAPAAAr","service":"jointright-backend","timestamp":"2026-05-22 14:45:42"}
+{"level":"info","message":"Socket disconnected: 5HDJLpOF7fMfVfAPAAAr","service":"jointright-backend","timestamp":"2026-05-22 14:46:12"}
+{"level":"info","message":"Socket connected: vZrFbbaaQNL4JjK7AAAt","service":"jointright-backend","timestamp":"2026-05-22 14:46:12"}
+{"level":"info","message":"Socket disconnected: vZrFbbaaQNL4JjK7AAAt","service":"jointright-backend","timestamp":"2026-05-22 14:46:14"}
+{"level":"info","message":"Socket connected: XbNtnYvztgX91BjIAAAv","service":"jointright-backend","timestamp":"2026-05-22 14:46:15"}
+{"level":"info","message":"Socket disconnected: XbNtnYvztgX91BjIAAAv","service":"jointright-backend","timestamp":"2026-05-22 14:46:15"}
+{"level":"info","message":"Socket connected: L5eGhECtqdXEVJhDAAAx","service":"jointright-backend","timestamp":"2026-05-22 14:46:15"}
+{"level":"info","message":"Socket disconnected: L5eGhECtqdXEVJhDAAAx","service":"jointright-backend","timestamp":"2026-05-22 14:46:46"}
+{"level":"info","message":"Socket connected: I08Z5P-Xn3tVuDVBAAAz","service":"jointright-backend","timestamp":"2026-05-22 14:46:46"}
+{"level":"info","message":"Socket disconnected: I08Z5P-Xn3tVuDVBAAAz","service":"jointright-backend","timestamp":"2026-05-22 14:47:17"}
+{"level":"info","message":"Socket connected: R_kng0iJ_3NxOIFKAAA1","service":"jointright-backend","timestamp":"2026-05-22 14:47:17"}
+{"level":"info","message":"Socket disconnected: R_kng0iJ_3NxOIFKAAA1","service":"jointright-backend","timestamp":"2026-05-22 14:47:17"}
+{"level":"info","message":"Socket connected: FfgmSTPjIqB54Gh_AAA3","service":"jointright-backend","timestamp":"2026-05-22 14:47:18"}
+{"level":"info","message":"Socket disconnected: FfgmSTPjIqB54Gh_AAA3","service":"jointright-backend","timestamp":"2026-05-22 14:47:48"}
+{"level":"info","message":"Socket connected: zHr-d4POcbou0Pd4AAA5","service":"jointright-backend","timestamp":"2026-05-22 14:47:48"}
+{"level":"info","message":"Socket disconnected: zHr-d4POcbou0Pd4AAA5","service":"jointright-backend","timestamp":"2026-05-22 14:48:19"}
+{"level":"info","message":"Socket connected: 1HuKsqbIrG5hsXulAAA7","service":"jointright-backend","timestamp":"2026-05-22 14:48:19"}
+{"level":"info","message":"Socket disconnected: 1HuKsqbIrG5hsXulAAA7","service":"jointright-backend","timestamp":"2026-05-22 14:48:39"}
+{"level":"info","message":"Socket connected: M1BC6Nx2Y9yKXyUCAAA9","service":"jointright-backend","timestamp":"2026-05-22 14:48:39"}
+{"level":"info","message":"Socket disconnected: M1BC6Nx2Y9yKXyUCAAA9","service":"jointright-backend","timestamp":"2026-05-22 14:49:09"}
+{"level":"info","message":"Socket connected: BsKiEJ9h5an9nAnBAAA_","service":"jointright-backend","timestamp":"2026-05-22 14:49:09"}
+{"level":"info","message":"Socket disconnected: BsKiEJ9h5an9nAnBAAA_","service":"jointright-backend","timestamp":"2026-05-22 14:49:40"}
+{"level":"info","message":"Socket connected: cUvMMS9mDgUcKpH8AABB","service":"jointright-backend","timestamp":"2026-05-22 14:49:40"}
+{"level":"info","message":"Socket disconnected: cUvMMS9mDgUcKpH8AABB","service":"jointright-backend","timestamp":"2026-05-22 14:49:40"}
+{"level":"info","message":"Socket connected: z8SLUsob71bTbkybAABD","service":"jointright-backend","timestamp":"2026-05-22 14:49:41"}
+{"level":"info","message":"Socket disconnected: z8SLUsob71bTbkybAABD","service":"jointright-backend","timestamp":"2026-05-22 14:50:11"}
+{"level":"info","message":"Socket connected: 9omKVs6_ajiuSVSNAABF","service":"jointright-backend","timestamp":"2026-05-22 14:50:11"}
+{"level":"info","message":"Socket disconnected: 9omKVs6_ajiuSVSNAABF","service":"jointright-backend","timestamp":"2026-05-22 14:50:42"}
+{"level":"info","message":"Socket connected: tkh3GhzaiQMlqDUgAABH","service":"jointright-backend","timestamp":"2026-05-22 14:50:42"}
+{"level":"info","message":"Socket disconnected: tkh3GhzaiQMlqDUgAABH","service":"jointright-backend","timestamp":"2026-05-22 14:50:42"}
+{"level":"info","message":"Socket connected: VZQIvUI2TpKn_vpzAABJ","service":"jointright-backend","timestamp":"2026-05-22 14:50:43"}
+{"level":"info","message":"Socket disconnected: VZQIvUI2TpKn_vpzAABJ","service":"jointright-backend","timestamp":"2026-05-22 14:51:13"}
+{"level":"info","message":"Socket connected: UAIxe55IyMiXEx-IAABL","service":"jointright-backend","timestamp":"2026-05-22 14:51:13"}
+{"level":"info","message":"Socket disconnected: UAIxe55IyMiXEx-IAABL","service":"jointright-backend","timestamp":"2026-05-22 14:51:13"}
+{"level":"info","message":"Socket connected: nJOv8neWrPRaDVMrAABN","service":"jointright-backend","timestamp":"2026-05-22 14:51:14"}
+{"level":"info","message":"Socket disconnected: nJOv8neWrPRaDVMrAABN","service":"jointright-backend","timestamp":"2026-05-22 14:51:44"}
+{"level":"info","message":"Socket connected: pNBZeS220LUeGRgRAABP","service":"jointright-backend","timestamp":"2026-05-22 14:51:44"}
+{"level":"info","message":"Socket disconnected: pNBZeS220LUeGRgRAABP","service":"jointright-backend","timestamp":"2026-05-22 14:51:45"}
+{"level":"info","message":"Socket connected: G0io4lwP5A3bM3tsAABR","service":"jointright-backend","timestamp":"2026-05-22 14:51:45"}
+{"level":"info","message":"Socket disconnected: G0io4lwP5A3bM3tsAABR","service":"jointright-backend","timestamp":"2026-05-22 14:52:15"}
+{"level":"info","message":"Socket connected: 2PgFYIoziRmLttmyAABT","service":"jointright-backend","timestamp":"2026-05-22 14:52:15"}
+{"level":"info","message":"Socket disconnected: 2PgFYIoziRmLttmyAABT","service":"jointright-backend","timestamp":"2026-05-22 14:52:39"}
+{"level":"info","message":"Socket connected: XNQZPgU2i1mfrKs6AABV","service":"jointright-backend","timestamp":"2026-05-22 14:52:39"}
+{"level":"info","message":"Socket disconnected: XNQZPgU2i1mfrKs6AABV","service":"jointright-backend","timestamp":"2026-05-22 14:52:39"}
+{"level":"info","message":"Socket connected: aI95g5peVyHLzUE7AABX","service":"jointright-backend","timestamp":"2026-05-22 14:52:40"}
+{"level":"info","message":"Socket disconnected: aI95g5peVyHLzUE7AABX","service":"jointright-backend","timestamp":"2026-05-22 14:53:10"}
+{"level":"info","message":"Socket connected: rMQcUsKrcKG8aKCsAABZ","service":"jointright-backend","timestamp":"2026-05-22 14:53:10"}
+{"level":"info","message":"Socket disconnected: rMQcUsKrcKG8aKCsAABZ","service":"jointright-backend","timestamp":"2026-05-22 14:53:10"}
+{"level":"info","message":"Socket connected: s0LUzYRBz1l1AOW5AABb","service":"jointright-backend","timestamp":"2026-05-22 14:53:11"}
+{"level":"info","message":"Socket disconnected: s0LUzYRBz1l1AOW5AABb","service":"jointright-backend","timestamp":"2026-05-22 14:53:41"}
+{"level":"info","message":"Socket connected: 7lvXlH2yV8hFD93fAABd","service":"jointright-backend","timestamp":"2026-05-22 14:53:41"}
+{"level":"info","message":"Socket disconnected: 7lvXlH2yV8hFD93fAABd","service":"jointright-backend","timestamp":"2026-05-22 14:53:42"}
+{"level":"info","message":"Socket connected: Mia0Qv6mir6ykc11AABf","service":"jointright-backend","timestamp":"2026-05-22 14:53:42"}
+{"level":"info","message":"Socket disconnected: Mia0Qv6mir6ykc11AABf","service":"jointright-backend","timestamp":"2026-05-22 14:54:12"}
+{"level":"info","message":"Socket connected: Zo1A-XbASkLTpWKuAABh","service":"jointright-backend","timestamp":"2026-05-22 14:54:12"}
+{"level":"info","message":"Socket disconnected: Zo1A-XbASkLTpWKuAABh","service":"jointright-backend","timestamp":"2026-05-22 14:54:12"}
+{"level":"info","message":"Socket connected: Br0okQOTbF3D5CoRAABj","service":"jointright-backend","timestamp":"2026-05-22 14:54:13"}
+{"level":"info","message":"Socket disconnected: Br0okQOTbF3D5CoRAABj","service":"jointright-backend","timestamp":"2026-05-22 14:54:43"}
+{"level":"info","message":"Socket connected: DBfAHEV_OrAGRy0rAABl","service":"jointright-backend","timestamp":"2026-05-22 14:54:43"}
+{"level":"info","message":"Socket disconnected: DBfAHEV_OrAGRy0rAABl","service":"jointright-backend","timestamp":"2026-05-22 14:55:14"}
+{"level":"info","message":"Socket connected: lbYei9wMmaYHZZX2AABn","service":"jointright-backend","timestamp":"2026-05-22 14:55:14"}
+{"level":"info","message":"Socket disconnected: lbYei9wMmaYHZZX2AABn","service":"jointright-backend","timestamp":"2026-05-22 14:55:14"}
+{"level":"info","message":"Socket connected: jDfzFIBNH1zMdZ6EAABp","service":"jointright-backend","timestamp":"2026-05-22 14:55:15"}
+{"level":"info","message":"Socket disconnected: jDfzFIBNH1zMdZ6EAABp","service":"jointright-backend","timestamp":"2026-05-22 14:55:45"}
+{"level":"info","message":"Socket connected: au11ugQyvLPk7aTBAABr","service":"jointright-backend","timestamp":"2026-05-22 14:55:46"}
+{"level":"info","message":"Socket disconnected: au11ugQyvLPk7aTBAABr","service":"jointright-backend","timestamp":"2026-05-22 14:56:16"}
+{"level":"info","message":"Socket connected: yo6y52fbtAe4N1rnAABt","service":"jointright-backend","timestamp":"2026-05-22 14:56:16"}
+{"level":"info","message":"Socket disconnected: yo6y52fbtAe4N1rnAABt","service":"jointright-backend","timestamp":"2026-05-22 14:56:17"}
+{"level":"info","message":"Socket connected: pf57YLwhCRmgCJN6AABv","service":"jointright-backend","timestamp":"2026-05-22 14:56:17"}
+{"level":"info","message":"Socket disconnected: pf57YLwhCRmgCJN6AABv","service":"jointright-backend","timestamp":"2026-05-22 14:56:47"}
+{"level":"info","message":"Socket connected: _xwRtXmH52JmGAMyAABx","service":"jointright-backend","timestamp":"2026-05-22 14:56:47"}
+{"level":"info","message":"Socket disconnected: _xwRtXmH52JmGAMyAABx","service":"jointright-backend","timestamp":"2026-05-22 14:57:18"}
+{"level":"info","message":"Socket connected: XdRP0V0AVN2zXd1DAABz","service":"jointright-backend","timestamp":"2026-05-22 14:57:18"}
+{"level":"info","message":"Socket disconnected: XdRP0V0AVN2zXd1DAABz","service":"jointright-backend","timestamp":"2026-05-22 14:57:18"}
+{"level":"info","message":"Socket connected: zOrJ57wNToEQeUAzAAB1","service":"jointright-backend","timestamp":"2026-05-22 14:57:19"}
+{"level":"info","message":"Socket disconnected: zOrJ57wNToEQeUAzAAB1","service":"jointright-backend","timestamp":"2026-05-22 14:57:49"}
+{"level":"info","message":"Socket connected: LufZAddQHn1a2BCQAAB3","service":"jointright-backend","timestamp":"2026-05-22 14:57:49"}
+{"level":"info","message":"Socket disconnected: LufZAddQHn1a2BCQAAB3","service":"jointright-backend","timestamp":"2026-05-22 14:58:20"}
+{"level":"info","message":"Socket connected: TdL4823pL-SIJz_aAAB5","service":"jointright-backend","timestamp":"2026-05-22 14:58:20"}
+{"level":"info","message":"Socket disconnected: TdL4823pL-SIJz_aAAB5","service":"jointright-backend","timestamp":"2026-05-22 14:58:20"}
+{"level":"info","message":"Socket connected: VmvILPTfVC0OYSLQAAB7","service":"jointright-backend","timestamp":"2026-05-22 14:58:21"}
+{"level":"info","message":"Socket disconnected: VmvILPTfVC0OYSLQAAB7","service":"jointright-backend","timestamp":"2026-05-22 14:58:51"}
+{"level":"info","message":"Socket connected: iqMHJYxSkbbrokh-AAB9","service":"jointright-backend","timestamp":"2026-05-22 14:58:51"}
+{"level":"info","message":"Socket disconnected: iqMHJYxSkbbrokh-AAB9","service":"jointright-backend","timestamp":"2026-05-22 14:59:22"}
+{"level":"info","message":"Socket connected: ZgEa69N_6iTPWaWCAAB_","service":"jointright-backend","timestamp":"2026-05-22 14:59:22"}
+{"level":"info","message":"Socket disconnected: ZgEa69N_6iTPWaWCAAB_","service":"jointright-backend","timestamp":"2026-05-22 14:59:22"}
+{"level":"info","message":"Socket connected: UjrytY1ts3QTP_ajAACB","service":"jointright-backend","timestamp":"2026-05-22 14:59:23"}
+{"level":"info","message":"Socket disconnected: UjrytY1ts3QTP_ajAACB","service":"jointright-backend","timestamp":"2026-05-22 14:59:53"}
+{"level":"info","message":"Socket connected: 9ssjK6btdpoDfE4tAACD","service":"jointright-backend","timestamp":"2026-05-22 14:59:53"}
+{"level":"info","message":"Socket disconnected: 9ssjK6btdpoDfE4tAACD","service":"jointright-backend","timestamp":"2026-05-22 14:59:53"}
+{"level":"info","message":"Socket connected: GIpM0GHIVgs04iSDAACF","service":"jointright-backend","timestamp":"2026-05-22 14:59:54"}
+{"level":"info","message":"Socket disconnected: GIpM0GHIVgs04iSDAACF","service":"jointright-backend","timestamp":"2026-05-22 15:00:24"}
+{"level":"info","message":"Socket connected: Rpd453vEm5yx1z2bAACH","service":"jointright-backend","timestamp":"2026-05-22 15:00:24"}
+{"level":"info","message":"Socket disconnected: Rpd453vEm5yx1z2bAACH","service":"jointright-backend","timestamp":"2026-05-22 15:00:25"}
+{"level":"info","message":"Socket connected: sdKYn1LW7T7VcemLAACJ","service":"jointright-backend","timestamp":"2026-05-22 15:00:25"}
+{"level":"info","message":"Socket disconnected: sdKYn1LW7T7VcemLAACJ","service":"jointright-backend","timestamp":"2026-05-22 15:00:55"}
+{"level":"info","message":"Socket connected: BpV14Re5AoqPbHCkAACL","service":"jointright-backend","timestamp":"2026-05-22 15:00:55"}
+{"level":"warn","message":"MongoDB disconnected","service":"jointright-backend","timestamp":"2026-05-22 15:01:02"}
+{"level":"info","message":"Socket disconnected: BpV14Re5AoqPbHCkAACL","service":"jointright-backend","timestamp":"2026-05-22 15:01:09"}
+{"level":"info","message":"MongoDB reconnected","service":"jointright-backend","timestamp":"2026-05-22 15:01:10"}
+{"level":"info","message":"Socket connected: K1UhwoUoL4mbjcqXAACN","service":"jointright-backend","timestamp":"2026-05-22 15:01:10"}
+{"level":"info","message":"Socket disconnected: K1UhwoUoL4mbjcqXAACN","service":"jointright-backend","timestamp":"2026-05-22 15:01:10"}
+{"level":"info","message":"Socket connected: fut8lA-4LURIXBrHAACP","service":"jointright-backend","timestamp":"2026-05-22 15:01:11"}
+{"level":"info","message":"Socket disconnected: fut8lA-4LURIXBrHAACP","service":"jointright-backend","timestamp":"2026-05-22 15:01:41"}
+{"level":"info","message":"Socket connected: eiRb6CHN-yJw6XQJAACR","service":"jointright-backend","timestamp":"2026-05-22 15:01:41"}
+{"level":"info","message":"Socket disconnected: eiRb6CHN-yJw6XQJAACR","service":"jointright-backend","timestamp":"2026-05-22 15:01:41"}
+{"level":"info","message":"Socket connected: NQQulLQty05tsQvDAACT","service":"jointright-backend","timestamp":"2026-05-22 15:01:42"}
+{"level":"info","message":"Socket disconnected: NQQulLQty05tsQvDAACT","service":"jointright-backend","timestamp":"2026-05-22 15:02:12"}
+{"level":"info","message":"Socket connected: PupEphnjUSowrNe3AACV","service":"jointright-backend","timestamp":"2026-05-22 15:02:12"}
+{"level":"info","message":"Socket disconnected: PupEphnjUSowrNe3AACV","service":"jointright-backend","timestamp":"2026-05-22 15:02:43"}
+{"level":"info","message":"Socket connected: GXtg6GW7aFYSrMO2AACX","service":"jointright-backend","timestamp":"2026-05-22 15:02:43"}
+{"level":"info","message":"Socket disconnected: GXtg6GW7aFYSrMO2AACX","service":"jointright-backend","timestamp":"2026-05-22 15:02:43"}
+{"level":"info","message":"Socket connected: XAfr_tINGIK5TpwvAACZ","service":"jointright-backend","timestamp":"2026-05-22 15:02:44"}
+{"level":"info","message":"Socket disconnected: XAfr_tINGIK5TpwvAACZ","service":"jointright-backend","timestamp":"2026-05-22 15:03:14"}
+{"level":"info","message":"Socket connected: sJte-h2w14Ap2B0gAACb","service":"jointright-backend","timestamp":"2026-05-22 15:03:14"}
+{"level":"info","message":"Socket disconnected: sJte-h2w14Ap2B0gAACb","service":"jointright-backend","timestamp":"2026-05-22 15:03:45"}
+{"level":"info","message":"Socket connected: LgCxeI5T4kZ0x6LhAACd","service":"jointright-backend","timestamp":"2026-05-22 15:03:45"}
+{"level":"info","message":"Socket disconnected: LgCxeI5T4kZ0x6LhAACd","service":"jointright-backend","timestamp":"2026-05-22 15:03:45"}
+{"level":"info","message":"Socket connected: vsba547H8LcR8TIqAACf","service":"jointright-backend","timestamp":"2026-05-22 15:03:46"}
+{"level":"info","message":"Socket disconnected: vsba547H8LcR8TIqAACf","service":"jointright-backend","timestamp":"2026-05-22 15:04:16"}
+{"level":"info","message":"Socket connected: MSWpd7CEqP1wP0yDAACh","service":"jointright-backend","timestamp":"2026-05-22 15:04:16"}
+{"level":"info","message":"Socket disconnected: MSWpd7CEqP1wP0yDAACh","service":"jointright-backend","timestamp":"2026-05-22 15:04:47"}
+{"level":"info","message":"Socket connected: dUBJ92CN_4b8BmqVAACj","service":"jointright-backend","timestamp":"2026-05-22 15:04:47"}
+{"level":"info","message":"Socket disconnected: dUBJ92CN_4b8BmqVAACj","service":"jointright-backend","timestamp":"2026-05-22 15:04:47"}
+{"level":"info","message":"Socket connected: U7bdfdZ3i0EkXZuCAACl","service":"jointright-backend","timestamp":"2026-05-22 15:04:48"}
+{"level":"info","message":"Socket disconnected: U7bdfdZ3i0EkXZuCAACl","service":"jointright-backend","timestamp":"2026-05-22 15:05:18"}
+{"level":"info","message":"Socket connected: 6SfXtLnywYlYu187AACn","service":"jointright-backend","timestamp":"2026-05-22 15:05:18"}
+{"level":"info","message":"Socket disconnected: 6SfXtLnywYlYu187AACn","service":"jointright-backend","timestamp":"2026-05-22 15:05:49"}
+{"level":"info","message":"Socket connected: vjvxgptUN_okQsKKAACp","service":"jointright-backend","timestamp":"2026-05-22 15:05:49"}
+{"level":"info","message":"Socket disconnected: vjvxgptUN_okQsKKAACp","service":"jointright-backend","timestamp":"2026-05-22 15:05:49"}
+{"level":"info","message":"Socket connected: js6kdVeT9Bl49nuPAACr","service":"jointright-backend","timestamp":"2026-05-22 15:05:50"}
+{"level":"info","message":"Socket disconnected: js6kdVeT9Bl49nuPAACr","service":"jointright-backend","timestamp":"2026-05-22 15:06:20"}
+{"level":"info","message":"Socket connected: q7yT-LsrNl54KLUmAACt","service":"jointright-backend","timestamp":"2026-05-22 15:06:20"}
+{"level":"info","message":"Socket disconnected: q7yT-LsrNl54KLUmAACt","service":"jointright-backend","timestamp":"2026-05-22 15:06:51"}
+{"level":"info","message":"Socket connected: 8e8_rR2KmWsAS6rsAACv","service":"jointright-backend","timestamp":"2026-05-22 15:06:51"}
+{"level":"info","message":"Socket disconnected: 8e8_rR2KmWsAS6rsAACv","service":"jointright-backend","timestamp":"2026-05-22 15:06:52"}
+{"level":"info","message":"Socket connected: p7r2ZcBdLpmQBJ-iAACx","service":"jointright-backend","timestamp":"2026-05-22 15:06:52"}
+{"level":"info","message":"Socket disconnected: p7r2ZcBdLpmQBJ-iAACx","service":"jointright-backend","timestamp":"2026-05-22 15:07:22"}
+{"level":"info","message":"Socket connected: lEh5zWg-V2QV6i1TAACz","service":"jointright-backend","timestamp":"2026-05-22 15:07:22"}
+{"level":"info","message":"Socket disconnected: lEh5zWg-V2QV6i1TAACz","service":"jointright-backend","timestamp":"2026-05-22 15:07:22"}
+{"level":"info","message":"Socket connected: mZ3A_r-2QA8Z2lDMAAC1","service":"jointright-backend","timestamp":"2026-05-22 15:07:23"}
+{"level":"info","message":"Socket disconnected: mZ3A_r-2QA8Z2lDMAAC1","service":"jointright-backend","timestamp":"2026-05-22 15:07:23"}
+{"level":"info","message":"Socket connected: TyByyhdd8aM81Y8QAAC3","service":"jointright-backend","timestamp":"2026-05-22 15:07:23"}
+{"level":"info","message":"Socket disconnected: TyByyhdd8aM81Y8QAAC3","service":"jointright-backend","timestamp":"2026-05-22 15:07:53"}
+{"level":"info","message":"Socket connected: etOQEX6QLtVnj6eLAAC5","service":"jointright-backend","timestamp":"2026-05-22 15:07:53"}
+{"level":"info","message":"Socket disconnected: etOQEX6QLtVnj6eLAAC5","service":"jointright-backend","timestamp":"2026-05-22 15:07:53"}
+{"level":"info","message":"Socket connected: gzFfkfksMC_v36v0AAC7","service":"jointright-backend","timestamp":"2026-05-22 15:07:54"}
+{"level":"info","message":"Socket disconnected: gzFfkfksMC_v36v0AAC7","service":"jointright-backend","timestamp":"2026-05-22 15:08:24"}
+{"level":"info","message":"Socket connected: oeXDnRDrc_pIHEbBAAC9","service":"jointright-backend","timestamp":"2026-05-22 15:08:24"}
+{"level":"info","message":"Socket disconnected: oeXDnRDrc_pIHEbBAAC9","service":"jointright-backend","timestamp":"2026-05-22 15:08:55"}
+{"level":"info","message":"Socket connected: vIXMh2L5YpJAn6q_AAC_","service":"jointright-backend","timestamp":"2026-05-22 15:08:55"}
+{"level":"info","message":"Socket disconnected: vIXMh2L5YpJAn6q_AAC_","service":"jointright-backend","timestamp":"2026-05-22 15:08:56"}
+{"level":"info","message":"Socket connected: 2gogTeVT7CA5_SpfAADB","service":"jointright-backend","timestamp":"2026-05-22 15:08:56"}
+{"level":"info","message":"Socket disconnected: 2gogTeVT7CA5_SpfAADB","service":"jointright-backend","timestamp":"2026-05-22 15:09:26"}
+{"level":"info","message":"Socket connected: 9i7Hw362F_WfbWVLAADD","service":"jointright-backend","timestamp":"2026-05-22 15:09:26"}
+{"level":"info","message":"Socket disconnected: 9i7Hw362F_WfbWVLAADD","service":"jointright-backend","timestamp":"2026-05-22 15:09:28"}
+{"level":"info","message":"Socket connected: 6GwoPVStuE4JYMsbAADF","service":"jointright-backend","timestamp":"2026-05-22 15:09:29"}
+{"level":"info","message":"Socket disconnected: 6GwoPVStuE4JYMsbAADF","service":"jointright-backend","timestamp":"2026-05-22 15:09:59"}
+{"level":"info","message":"Socket connected: g6uBYrOaS71ioemWAADH","service":"jointright-backend","timestamp":"2026-05-22 15:09:59"}
+{"level":"info","message":"Socket disconnected: g6uBYrOaS71ioemWAADH","service":"jointright-backend","timestamp":"2026-05-22 15:09:59"}
+{"level":"info","message":"Socket connected: -n2vmvd1AhY0qxg1AADJ","service":"jointright-backend","timestamp":"2026-05-22 15:10:00"}
+{"level":"info","message":"Socket disconnected: -n2vmvd1AhY0qxg1AADJ","service":"jointright-backend","timestamp":"2026-05-22 15:10:30"}
+{"level":"info","message":"Socket connected: gbByXUJYtRC1hO0cAADL","service":"jointright-backend","timestamp":"2026-05-22 15:10:30"}
+{"level":"info","message":"Socket disconnected: gbByXUJYtRC1hO0cAADL","service":"jointright-backend","timestamp":"2026-05-22 15:10:30"}
+{"level":"info","message":"Socket connected: XanJFxw7oDpZdMUVAADN","service":"jointright-backend","timestamp":"2026-05-22 15:10:31"}
+{"level":"info","message":"Socket disconnected: XanJFxw7oDpZdMUVAADN","service":"jointright-backend","timestamp":"2026-05-22 15:11:01"}
+{"level":"info","message":"Socket connected: W_-H7l7m_POsbkybAADP","service":"jointright-backend","timestamp":"2026-05-22 15:11:01"}
+{"level":"info","message":"Socket disconnected: W_-H7l7m_POsbkybAADP","service":"jointright-backend","timestamp":"2026-05-22 15:11:20"}
+{"level":"info","message":"Socket connected: elrW6O2W453HjC0tAADR","service":"jointright-backend","timestamp":"2026-05-22 15:11:21"}
+{"level":"info","message":"Socket disconnected: elrW6O2W453HjC0tAADR","service":"jointright-backend","timestamp":"2026-05-22 15:11:51"}
+{"level":"info","message":"Socket connected: RVw2j8NxbDfZD8ChAADT","service":"jointright-backend","timestamp":"2026-05-22 15:11:51"}
+{"level":"info","message":"Socket disconnected: RVw2j8NxbDfZD8ChAADT","service":"jointright-backend","timestamp":"2026-05-22 15:12:22"}
+{"level":"info","message":"Socket connected: 5BOSCsPx6xkwu8iqAADV","service":"jointright-backend","timestamp":"2026-05-22 15:12:22"}
+{"level":"info","message":"Socket disconnected: 5BOSCsPx6xkwu8iqAADV","service":"jointright-backend","timestamp":"2026-05-22 15:12:22"}
+{"level":"info","message":"Socket connected: wyj3m60qh5jXvATsAADX","service":"jointright-backend","timestamp":"2026-05-22 15:12:23"}
+{"level":"info","message":"Socket disconnected: wyj3m60qh5jXvATsAADX","service":"jointright-backend","timestamp":"2026-05-22 15:12:53"}
+{"level":"info","message":"Socket connected: cQyDAvlZ5lVhatjZAADZ","service":"jointright-backend","timestamp":"2026-05-22 15:12:53"}
+{"level":"info","message":"Socket disconnected: cQyDAvlZ5lVhatjZAADZ","service":"jointright-backend","timestamp":"2026-05-22 15:13:03"}
+{"level":"info","message":"Socket connected: XXHykEYhdd__91dcAADb","service":"jointright-backend","timestamp":"2026-05-22 15:13:03"}
+{"level":"info","message":"Socket disconnected: XXHykEYhdd__91dcAADb","service":"jointright-backend","timestamp":"2026-05-22 15:13:33"}
+{"level":"info","message":"Socket connected: C_l9CBd6YSxAXQurAADd","service":"jointright-backend","timestamp":"2026-05-22 15:13:33"}
+{"level":"info","message":"Socket disconnected: C_l9CBd6YSxAXQurAADd","service":"jointright-backend","timestamp":"2026-05-22 15:13:33"}
+{"level":"info","message":"Socket connected: owaHOgxFDm7iWWbXAADf","service":"jointright-backend","timestamp":"2026-05-22 15:13:34"}
+{"level":"info","message":"Socket disconnected: owaHOgxFDm7iWWbXAADf","service":"jointright-backend","timestamp":"2026-05-22 15:14:04"}
+{"level":"info","message":"Socket connected: HKNXi4_NS6osiSkRAADh","service":"jointright-backend","timestamp":"2026-05-22 15:14:04"}
+{"level":"info","message":"Socket disconnected: HKNXi4_NS6osiSkRAADh","service":"jointright-backend","timestamp":"2026-05-22 15:14:35"}
+{"level":"info","message":"Socket connected: J-Oz2u8R4jbCMyHWAADj","service":"jointright-backend","timestamp":"2026-05-22 15:14:35"}
+{"level":"info","message":"Socket disconnected: J-Oz2u8R4jbCMyHWAADj","service":"jointright-backend","timestamp":"2026-05-22 15:14:35"}
+{"level":"info","message":"Socket connected: Rggebjr8B2KNN46PAADl","service":"jointright-backend","timestamp":"2026-05-22 15:14:36"}
+{"level":"info","message":"Socket disconnected: Rggebjr8B2KNN46PAADl","service":"jointright-backend","timestamp":"2026-05-22 15:15:06"}
+{"level":"info","message":"Socket connected: YqYdEjpkrXdSE5ikAADn","service":"jointright-backend","timestamp":"2026-05-22 15:15:06"}
+{"level":"info","message":"Socket disconnected: YqYdEjpkrXdSE5ikAADn","service":"jointright-backend","timestamp":"2026-05-22 15:15:37"}
+{"level":"info","message":"Socket connected: gW8tfIVLeXCC6zh2AADp","service":"jointright-backend","timestamp":"2026-05-22 15:15:37"}
+{"level":"info","message":"Socket disconnected: gW8tfIVLeXCC6zh2AADp","service":"jointright-backend","timestamp":"2026-05-22 15:15:37"}
+{"level":"info","message":"Socket connected: flZikwYK5hujBoIlAADr","service":"jointright-backend","timestamp":"2026-05-22 15:15:38"}
+{"level":"info","message":"Socket disconnected: flZikwYK5hujBoIlAADr","service":"jointright-backend","timestamp":"2026-05-22 15:16:08"}
+{"level":"info","message":"Socket connected: voQx6mceJ2JXHoGNAADt","service":"jointright-backend","timestamp":"2026-05-22 15:16:08"}
+{"level":"info","message":"Socket disconnected: voQx6mceJ2JXHoGNAADt","service":"jointright-backend","timestamp":"2026-05-22 15:16:39"}
+{"level":"info","message":"Socket connected: Q4K_mPMPVFUjOTdSAADv","service":"jointright-backend","timestamp":"2026-05-22 15:16:39"}
+{"level":"info","message":"Socket disconnected: Q4K_mPMPVFUjOTdSAADv","service":"jointright-backend","timestamp":"2026-05-22 15:16:39"}
+{"level":"info","message":"Socket connected: PTyj0fa0fdFqDELyAADx","service":"jointright-backend","timestamp":"2026-05-22 15:16:40"}
+{"level":"info","message":"Socket disconnected: PTyj0fa0fdFqDELyAADx","service":"jointright-backend","timestamp":"2026-05-22 15:17:10"}
+{"level":"info","message":"Socket connected: EhVexOsnzDkWS6svAADz","service":"jointright-backend","timestamp":"2026-05-22 15:17:10"}
+{"level":"info","message":"Socket disconnected: EhVexOsnzDkWS6svAADz","service":"jointright-backend","timestamp":"2026-05-22 15:17:41"}
+{"level":"info","message":"Socket connected: XvBY3qE_60TAhXt4AAD1","service":"jointright-backend","timestamp":"2026-05-22 15:17:41"}
+{"level":"info","message":"Socket disconnected: XvBY3qE_60TAhXt4AAD1","service":"jointright-backend","timestamp":"2026-05-22 15:17:41"}
+{"level":"info","message":"Socket connected: YNgyxLdp8pL2qjOlAAD3","service":"jointright-backend","timestamp":"2026-05-22 15:17:42"}
+{"level":"info","message":"Socket disconnected: YNgyxLdp8pL2qjOlAAD3","service":"jointright-backend","timestamp":"2026-05-22 15:18:12"}
+{"level":"info","message":"Socket connected: JMUYotLfqK7vHrYqAAD5","service":"jointright-backend","timestamp":"2026-05-22 15:18:12"}
+{"level":"info","message":"Socket disconnected: JMUYotLfqK7vHrYqAAD5","service":"jointright-backend","timestamp":"2026-05-22 15:18:43"}
+{"level":"info","message":"Socket connected: bzxFB7esga-bb7goAAD7","service":"jointright-backend","timestamp":"2026-05-22 15:18:43"}
+{"level":"info","message":"Socket disconnected: bzxFB7esga-bb7goAAD7","service":"jointright-backend","timestamp":"2026-05-22 15:18:51"}
+{"level":"info","message":"Socket connected: zxfUrW96sp5tT8YXAAD9","service":"jointright-backend","timestamp":"2026-05-22 15:18:51"}
+{"level":"info","message":"Socket disconnected: zxfUrW96sp5tT8YXAAD9","service":"jointright-backend","timestamp":"2026-05-22 15:19:21"}
+{"level":"info","message":"Socket connected: LIbJC_rVxAqHNWAdAAD_","service":"jointright-backend","timestamp":"2026-05-22 15:19:21"}
+{"level":"info","message":"Socket disconnected: LIbJC_rVxAqHNWAdAAD_","service":"jointright-backend","timestamp":"2026-05-22 15:19:52"}
+{"level":"info","message":"Socket connected: DZ8qBVKOxcWWUuIzAAEB","service":"jointright-backend","timestamp":"2026-05-22 15:19:52"}
+{"level":"info","message":"Socket disconnected: DZ8qBVKOxcWWUuIzAAEB","service":"jointright-backend","timestamp":"2026-05-22 15:19:52"}
+{"level":"info","message":"Socket connected: jjnFJicRG2VY-SCmAAED","service":"jointright-backend","timestamp":"2026-05-22 15:19:53"}
+{"level":"info","message":"Socket disconnected: jjnFJicRG2VY-SCmAAED","service":"jointright-backend","timestamp":"2026-05-22 15:20:23"}
+{"level":"info","message":"Socket connected: LTollobpu9y-lPOaAAEF","service":"jointright-backend","timestamp":"2026-05-22 15:20:23"}
+{"level":"info","message":"Socket disconnected: LTollobpu9y-lPOaAAEF","service":"jointright-backend","timestamp":"2026-05-22 15:20:28"}
+{"level":"info","message":"Socket connected: 6P5DX0RMzQh1zrHUAAEH","service":"jointright-backend","timestamp":"2026-05-22 15:20:29"}
+{"level":"info","message":"Socket disconnected: 6P5DX0RMzQh1zrHUAAEH","service":"jointright-backend","timestamp":"2026-05-22 15:20:53"}
+{"level":"info","message":"Socket connected: YIzj6dsOjYT0a1BkAAEJ","service":"jointright-backend","timestamp":"2026-05-22 15:20:53"}
+{"level":"info","message":"Socket disconnected: YIzj6dsOjYT0a1BkAAEJ","service":"jointright-backend","timestamp":"2026-05-22 15:20:53"}
+{"level":"info","message":"Socket connected: 1F-RJVbmm0axyPANAAEL","service":"jointright-backend","timestamp":"2026-05-22 15:20:54"}
+{"level":"info","message":"Socket disconnected: 1F-RJVbmm0axyPANAAEL","service":"jointright-backend","timestamp":"2026-05-22 15:20:54"}
+{"level":"info","message":"Socket connected: nv7bGJRPw_UBX9lwAAEN","service":"jointright-backend","timestamp":"2026-05-22 15:20:55"}
+{"level":"info","message":"Socket disconnected: nv7bGJRPw_UBX9lwAAEN","service":"jointright-backend","timestamp":"2026-05-22 15:20:55"}
+{"level":"warn","message":"MongoDB disconnected","service":"jointright-backend","timestamp":"2026-05-22 15:31:01"}
+{"level":"info","message":"MongoDB reconnected","service":"jointright-backend","timestamp":"2026-05-22 15:31:11"}
+{"level":"warn","message":"MongoDB disconnected","service":"jointright-backend","timestamp":"2026-05-22 15:32:33"}
+{"level":"info","message":"MongoDB reconnected","service":"jointright-backend","timestamp":"2026-05-22 15:32:43"}
+{"level":"warn","message":"MongoDB disconnected","service":"jointright-backend","timestamp":"2026-05-22 15:39:42"}
+{"level":"info","message":"MongoDB reconnected","service":"jointright-backend","timestamp":"2026-05-22 15:40:54"}
+{"level":"warn","message":"MongoDB disconnected","service":"jointright-backend","timestamp":"2026-05-22 16:21:37"}
+{"level":"info","message":"MongoDB reconnected","service":"jointright-backend","timestamp":"2026-05-22 16:21:53"}
+{"level":"warn","message":"MongoDB disconnected","service":"jointright-backend","timestamp":"2026-05-22 16:22:35"}
+{"level":"info","message":"MongoDB reconnected","service":"jointright-backend","timestamp":"2026-05-22 16:22:45"}
+{"level":"warn","message":"MongoDB disconnected","service":"jointright-backend","timestamp":"2026-05-22 17:02:14"}
+{"level":"info","message":"MongoDB reconnected","service":"jointright-backend","timestamp":"2026-05-22 20:39:19"}

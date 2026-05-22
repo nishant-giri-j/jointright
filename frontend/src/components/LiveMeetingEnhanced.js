@@ -3,6 +3,15 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import Peer from 'simple-peer';
 import {
+  getEnterpriseICEServers,
+  applySimulcast,
+  selectSimulcastLayer,
+  switchSimulcastLayer,
+  useICERestartManager,
+  useBandwidthMonitor,
+} from '../hooks/useWebRTCEnterprise';
+import BandwidthMonitorBanner from './BandwidthMonitorBanner';
+import {
   FaMicrophone,
   FaMicrophoneSlash,
   FaVideo,
@@ -61,23 +70,59 @@ import { useAuth } from '../contexts/AuthContext';
 import HostRatingModal from './HostRatingModal';
 import HostAwardModal from './HostAwardModal';
 import CyberScoreBadge from './CyberScoreBadge';
+import { ThreeJSProvider, useThreeJS } from '../contexts/ThreeJSContext';
+import MeetingBackground3D from './MeetingBackground3D';
+import Avatar3D from './Avatar3D';
+import SpatialMeetingRoom from './SpatialMeetingRoom';
+import AnimatedPanel3D from './AnimatedPanel3D';
 
 const SOCKET_SERVER_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
+// Utility function to munge WebRTC SDP to prioritize hardware-accelerated codecs (H.264 / VP8)
+// This ensures maximum connectivity and minimal CPU lag on weak networks.
+const optimizeSDP = (sdp) => {
+  if (!sdp || typeof sdp !== 'string') return sdp;
+  
+  let lines = sdp.split('\r\n');
+  const mLineIndex = lines.findIndex(line => line.startsWith('m=video'));
+  
+  if (mLineIndex !== -1) {
+    const parts = lines[mLineIndex].split(' ');
+    const payloadTypes = parts.slice(3);
+    
+    const rtpmapLines = lines.filter(line => line.startsWith('a=rtpmap:'));
+    let vp8Pt = null;
+    let h264Pt = null;
+    
+    rtpmapLines.forEach(line => {
+      if (line.toLowerCase().includes('vp8/90000')) vp8Pt = line.split(':')[1].split(' ')[0];
+      if (line.toLowerCase().includes('h264/90000')) h264Pt = line.split(':')[1].split(' ')[0];
+    });
+    
+    const prioritized = [];
+    // Prioritize H264 first (best hardware acceleration), then VP8
+    if (h264Pt && payloadTypes.includes(h264Pt)) prioritized.push(h264Pt);
+    if (vp8Pt && payloadTypes.includes(vp8Pt)) prioritized.push(vp8Pt);
+    
+    payloadTypes.forEach(pt => {
+      if (!prioritized.includes(pt)) prioritized.push(pt);
+    });
+    
+    lines[mLineIndex] = parts.slice(0, 3).concat(prioritized).join(' ');
+  }
+  
+  return lines.join('\r\n');
+};
+
 // Camera-Off Placeholder shown when video is disabled
-const CameraOffPlaceholder = ({ name, isHost, size = 'normal' }) => {
-  const initial = (name || '?').charAt(0).toUpperCase();
+const CameraOffPlaceholder = ({ name, isHost, size = 'normal', isHandRaised = false, isSpeaking = false }) => {
   return (
-    <div className={`camera-off-placeholder placeholder-${size}`}>
-      <div className="avatar-circle">
-        <span className="avatar-initial">{initial}</span>
-      </div>
-      <div className="camera-off-info">
-        {isHost && <FaCrown className="ph-host-badge" />}
-        <span className="ph-name">{name}</span>
-        <FaVideoSlash className="ph-camera-icon" />
-      </div>
-    </div>
+    <Avatar3D 
+      name={name} 
+      isHost={isHost} 
+      isHandRaised={isHandRaised} 
+      isSpeaking={isSpeaking} 
+    />
   );
 };
 
@@ -100,6 +145,76 @@ const EnhancedVideoTile = React.memo(({
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const threeJS = useThreeJS();
+  const updateAudioLevel = threeJS ? threeJS.updateAudioLevel : () => {};
+  const setActiveSpeaker = threeJS ? threeJS.setActiveSpeaker : () => {};
+
+  useEffect(() => {
+    if (!peer || !audioRef.current) return;
+
+    let audioContext;
+    let source;
+    let analyser;
+    let animationFrameId;
+
+    const startAnalyser = () => {
+      try {
+        const stream = audioRef.current.srcObject;
+        if (!stream || stream.getAudioTracks().length === 0) return;
+
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        audioContext = new AudioCtx();
+        source = audioContext.createMediaStreamSource(stream);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 64;
+        source.connect(analyser);
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        const checkVolume = () => {
+          if (!analyser) return;
+          analyser.getByteFrequencyData(dataArray);
+
+          let total = 0;
+          for (let i = 0; i < bufferLength; i++) {
+            total += dataArray[i];
+          }
+          const average = total / bufferLength;
+          const normalizedLevel = average / 255.0;
+
+          // Notify context
+          updateAudioLevel(userName, normalizedLevel);
+
+          if (normalizedLevel > 0.08) {
+            setIsSpeaking(true);
+            setActiveSpeaker(userName);
+          } else {
+            setIsSpeaking(false);
+          }
+
+          animationFrameId = requestAnimationFrame(checkVolume);
+        };
+
+        checkVolume();
+      } catch (err) {
+        console.warn('Audio analysis setup failed:', err);
+      }
+    };
+
+    const timerId = setTimeout(startAnalyser, 1000);
+
+    return () => {
+      clearTimeout(timerId);
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      if (audioContext && audioContext.state !== 'closed') {
+        audioContext.close();
+      }
+      updateAudioLevel(userName, 0);
+    };
+  }, [peer, userName, updateAudioLevel, setActiveSpeaker]);
 
   useEffect(() => {
     if (peer) {
@@ -192,7 +307,13 @@ const EnhancedVideoTile = React.memo(({
       )}
 
       {!isVideoOn && (
-        <CameraOffPlaceholder name={userName} isHost={isHost} size={isSmall ? 'small' : 'normal'} />
+        <CameraOffPlaceholder 
+          name={userName} 
+          isHost={isHost} 
+          size={isSmall ? 'small' : 'normal'} 
+          isHandRaised={isHandRaised}
+          isSpeaking={isSpeaking}
+        />
       )}
       
       <video 
@@ -329,6 +450,79 @@ const EnhancedLiveMeeting = ({
   const [userStream, setUserStream] = useState();
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isAudioOn, setIsAudioOn] = useState(true);
+  const [localSpeaking, setLocalSpeaking] = useState(false);
+
+  const threeJS = useThreeJS();
+  const updateAudioLevel = threeJS ? threeJS.updateAudioLevel : () => {};
+  const setActiveSpeaker = threeJS ? threeJS.setActiveSpeaker : () => {};
+
+  useEffect(() => {
+    if (!userStream || !isAudioOn) {
+      updateAudioLevel(userName, 0);
+      setLocalSpeaking(false);
+      return;
+    }
+
+    let audioContext;
+    let source;
+    let analyser;
+    let animationFrameId;
+
+    const startLocalAnalyser = () => {
+      try {
+        if (userStream.getAudioTracks().length === 0) return;
+
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        audioContext = new AudioCtx();
+        source = audioContext.createMediaStreamSource(userStream);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 64;
+        source.connect(analyser);
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        const checkVolume = () => {
+          if (!analyser) return;
+          analyser.getByteFrequencyData(dataArray);
+
+          let total = 0;
+          for (let i = 0; i < bufferLength; i++) {
+            total += dataArray[i];
+          }
+          const average = total / bufferLength;
+          const normalizedLevel = average / 255.0;
+
+          // Notify context
+          updateAudioLevel(userName, normalizedLevel);
+
+          if (normalizedLevel > 0.08) {
+            setLocalSpeaking(true);
+            setActiveSpeaker(userName);
+          } else {
+            setLocalSpeaking(false);
+          }
+
+          animationFrameId = requestAnimationFrame(checkVolume);
+        };
+
+        checkVolume();
+      } catch (err) {
+        console.warn('Local audio analysis failed:', err);
+      }
+    };
+
+    const timerId = setTimeout(startLocalAnalyser, 1000);
+
+    return () => {
+      clearTimeout(timerId);
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      if (audioContext && audioContext.state !== 'closed') {
+        audioContext.close();
+      }
+      updateAudioLevel(userName, 0);
+    };
+  }, [userStream, isAudioOn, userName, updateAudioLevel, setActiveSpeaker]);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [screenStream, setScreenStream] = useState(null);
   const [supportsScreenShare, setSupportsScreenShare] = useState(false);
@@ -388,6 +582,20 @@ const EnhancedLiveMeeting = ({
   // Host-muted tracking (so unmute works correctly after host forces mute)
   const [hostMutedAudio, setHostMutedAudio] = useState(false);
   const [hostMutedVideo, setHostMutedVideo] = useState(false);
+
+  // ── Enterprise WebRTC State ──────────────────────────────────────────────
+  /** Whether we have dropped to audio-only due to low bandwidth */
+  const [isAudioOnlyMode, setIsAudioOnlyMode]     = useState(false);
+  /** Last measured available outgoing bandwidth in kbps */
+  const [bandwidthKbps, setBandwidthKbps]         = useState(0);
+  /** Last measured jitter in ms */
+  const [jitterMs, setJitterMs]                   = useState(0);
+  /** Last measured packet loss percentage */
+  const [packetLossPct, setPacketLossPct]         = useState(0);
+  /** Currently active simulcast layer rid: 'low' | 'medium' | 'high' */
+  const [activeSimulcastLayer, setActiveSimulcastLayer] = useState('high');
+  /** Whether the bandwidth banner has been manually dismissed */
+  const [bannerDismissed, setBannerDismissed]     = useState(false);
 
   // Device selection
   const [availableDevices, setAvailableDevices] = useState({ cameras: [], microphones: [] });
@@ -517,29 +725,42 @@ const EnhancedLiveMeeting = ({
         console.warn('Could not initialize AudioContext:', audioCtxError);
       }
       
-      // Get user media with robust resolution-matching constraints
+      // Get user media with Zoom-parity audio quality + enterprise constraints
       let stream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: { 
-            width: { ideal: 1280 }, 
-            height: { ideal: 720 },
-            facingMode: 'user',
-            frameRate: { ideal: 30 }
+            width:       { ideal: 1280 }, 
+            height:      { ideal: 720 },
+            facingMode:  'user',
+            frameRate:   { ideal: 30 }
           },
           audio: { 
-            echoCancellation: true, 
-            noiseSuppression: true,
-            autoGainControl: true,
-            sampleRate: 44100
+            // ── Zoom-parity audio quality settings ─────────────────────
+            echoCancellation:  true,   // Removes echo from speakers
+            noiseSuppression:  true,   // Removes background noise
+            autoGainControl:   true,   // AGC: normalises volume automatically
+            sampleRate:        48000,  // 48 kHz (standard for WebRTC/Opus)
+            channelCount:      1,      // Mono — optimal for voice calls
+            // Disable browser processing that can conflict with AGC
+            googEchoCancellation:     true,
+            googAutoGainControl:      true,
+            googNoiseSuppression:     true,
+            googHighpassFilter:       true,
+            googTypingNoiseDetection: true
           }
         });
       } catch (err) {
-        console.warn("Standard camera/mic constraints failed, trying basic fallback...", err);
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true
-        });
+        console.warn("Enterprise constraints failed, trying standard fallback...", err);
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, sampleRate: 48000 }
+          });
+        } catch (err2) {
+          console.warn("Standard constraints failed, using basic fallback...", err2);
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        }
       }
 
       setUserStream(stream);
@@ -1034,72 +1255,192 @@ const EnhancedLiveMeeting = ({
     });
   };
 
-  // Enhanced peer creation with better error handling
+  // ── Enterprise ICE Restart Manager ───────────────────────────────────────
+  const { attachToPeer: attachICERestart } = useICERestartManager(
+    peersRef,
+    socketRef,
+    showNotification
+  );
+
+  // ── Enterprise Bandwidth Monitor ──────────────────────────────────────────
+  const handleAudioOnlyChange = useCallback((isAudioOnly, kbps) => {
+    setIsAudioOnlyMode(isAudioOnly);
+    setBannerDismissed(false);
+    if (isAudioOnly) {
+      // Disable video track in stream
+      if (userStreamRef.current) {
+        userStreamRef.current.getVideoTracks().forEach(t => { t.enabled = false; });
+      }
+      setIsVideoOn(false);
+    }
+  }, []);
+
+  useBandwidthMonitor(
+    peersRef,
+    userStreamRef.current,
+    handleAudioOnlyChange,
+    showNotification,
+    true
+  );
+
+  // Subscribe to stats events dispatched by useBandwidthMonitor
+  useEffect(() => {
+    const handler = (e) => {
+      const { bandwidthKbps: bw, jitterMs: j, packetLossPct: loss } = e.detail;
+      setBandwidthKbps(bw);
+      setJitterMs(j);
+      setPacketLossPct(loss);
+
+      // Adaptive simulcast: pick the best layer based on current network stats
+      const newLayer = selectSimulcastLayer(
+        { jitterMs: j, packetLossPct: loss, bandwidthKbps: bw },
+        activeSimulcastLayer
+      );
+      if (newLayer !== activeSimulcastLayer) {
+        setActiveSimulcastLayer(newLayer);
+        // Apply layer switch to all active peer connections
+        peersRef.current.forEach(({ peer }) => {
+          if (peer && !peer.destroyed && peer._pc) {
+            switchSimulcastLayer(peer._pc, newLayer);
+          }
+        });
+        console.log(`[Simulcast] Adaptive switch: ${activeSimulcastLayer} → ${newLayer}`);
+      }
+    };
+    window.addEventListener('webrtc-stats-update', handler);
+    return () => window.removeEventListener('webrtc-stats-update', handler);
+  }, [activeSimulcastLayer]);
+
+  // ── ICE Restart relay: when remote side requests restart ──────────────────
+  useEffect(() => {
+    if (!socketRef.current) return;
+    const socket = socketRef.current;
+    const onRestartRequest = ({ fromPeerID }) => {
+      const peerObj = peersRef.current.find(p => p.peerID === fromPeerID);
+      if (peerObj?.peer?._pc) {
+        try {
+          if (typeof peerObj.peer._pc.restartIce === 'function') {
+            peerObj.peer._pc.restartIce();
+            console.log(`[ICE Restart] Responding to remote restart request from ${fromPeerID}`);
+          }
+        } catch (err) {
+          console.warn('[ICE Restart] Remote-triggered restart failed:', err);
+        }
+      }
+    };
+    socket.on('ice-restart-request', onRestartRequest);
+    return () => socket.off('ice-restart-request', onRestartRequest);
+  }, []);
+
+  // ── Enterprise Peer Creation (Initiator) ──────────────────────────────────
   const createPeer = useCallback((userToSignal, callerID, stream) => {
     const peer = new Peer({
       initiator: true,
-      trickle: false,
+      trickle:   true,
       stream,
       config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:global.stun.twilio.com:3478' }
-        ]
+        // Enterprise ICE: UDP + TCP + TLS/443 — reads from .env
+        iceServers:        getEnterpriseICEServers(),
+        iceTransportPolicy: 'all',
+        // Bundle policy: use a single ICE component for all tracks
+        bundlePolicy:      'max-bundle',
+        rtcpMuxPolicy:     'require',
       }
     });
 
-    peer.on("signal", signal => {
+    peer.on('signal', signal => {
       if (socketRef.current?.connected) {
-        socketRef.current.emit("signal", { to: userToSignal, from: callerID, signal });
+        let optimizedSignal = signal;
+        if (signal.type === 'offer' || signal.type === 'answer') {
+          optimizedSignal = { ...signal, sdp: optimizeSDP(signal.sdp) };
+        }
+        socketRef.current.emit('signal', { to: userToSignal, from: callerID, signal: optimizedSignal });
+        // Also emit via SFU-pattern relay for future media-server integration
+        socketRef.current.emit('sfu-offer', { to: userToSignal, from: callerID, signal: optimizedSignal });
       }
     });
 
-    peer.on("error", error => {
-      console.warn('Peer connection error:', error);
-      // Attempt reconnection logic could be added here
+    peer.on('error', error => {
+      console.warn('[Peer] Connection error:', error.message);
     });
 
-    peer.on("connect", () => {
-      console.log('Peer connected successfully');
+    peer.on('connect', async () => {
+      console.log('[Peer] ✅ Connected to', userToSignal);
       setConnectionQuality('good');
+
+      // Apply 3-layer simulcast on all video senders
+      if (peer._pc?.getSenders) {
+        for (const sender of peer._pc.getSenders()) {
+          if (sender.track?.kind === 'video') {
+            await applySimulcast(sender);
+          }
+        }
+      }
     });
+
+    // Attach enterprise ICE Restart manager (3-second timer on 'disconnected')
+    attachICERestart(peer, userToSignal);
 
     return peer;
-  }, []);
+  }, [attachICERestart]);
 
+  // ── Enterprise Peer Creation (Receiver) ───────────────────────────────────
   const addPeer = useCallback((incomingSignal, callerID, stream) => {
     const peer = new Peer({
       initiator: false,
-      trickle: false,
+      trickle:   true,
       stream,
       config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:global.stun.twilio.com:3478' }
-        ]
+        iceServers:        getEnterpriseICEServers(),
+        iceTransportPolicy: 'all',
+        bundlePolicy:      'max-bundle',
+        rtcpMuxPolicy:     'require',
       }
     });
 
-    peer.on("signal", signal => {
+    peer.on('signal', signal => {
       if (socketRef.current?.connected) {
-        socketRef.current.emit("signal", { to: callerID, from: socketRef.current.id, signal });
+        let optimizedSignal = signal;
+        if (signal.type === 'offer' || signal.type === 'answer') {
+          optimizedSignal = { ...signal, sdp: optimizeSDP(signal.sdp) };
+        }
+        socketRef.current.emit('signal', { to: callerID, from: socketRef.current.id, signal: optimizedSignal });
+        // SFU-pattern answer relay
+        socketRef.current.emit('sfu-answer', { to: callerID, from: socketRef.current.id, signal: optimizedSignal });
       }
     });
 
-    peer.on("error", error => {
-      console.warn('Peer connection error:', error);
+    peer.on('error', error => {
+      console.warn('[Peer] Connection error (receiver):', error.message);
     });
+
+    peer.on('connect', async () => {
+      console.log('[Peer] ✅ Connected (receiver) from', callerID);
+      setConnectionQuality('good');
+
+      // Apply 3-layer simulcast on all video senders
+      if (peer._pc?.getSenders) {
+        for (const sender of peer._pc.getSenders()) {
+          if (sender.track?.kind === 'video') {
+            await applySimulcast(sender);
+          }
+        }
+      }
+    });
+
+    // Attach enterprise ICE Restart manager
+    attachICERestart(peer, callerID);
 
     if (incomingSignal) {
       try {
         peer.signal(incomingSignal);
       } catch (error) {
-        console.warn('Error signaling incoming peer:', error);
+        console.warn('[Peer] Error signaling incoming peer:', error);
       }
     }
 
     return peer;
-  }, []);
+  }, [attachICERestart]);
 
   const handlePasscodeSubmit = (e) => {
     e.preventDefault();
@@ -1153,6 +1494,20 @@ const EnhancedLiveMeeting = ({
 
   const toggleVideo = useCallback(async () => {
     try {
+      // ── Audio-only mode guard ──────────────────────────────────────────────
+      // If bandwidth is critically low and we are currently in audio-only mode,
+      // prevent the user from turning camera back on manually. They should wait
+      // for the BandwidthMonitorBanner "Re-enable Camera" button (which checks
+      // the recovery threshold of 300 kbps before enabling).
+      if (isAudioOnlyMode && !isVideoOn) {
+        showNotification(
+          `⚠️ Camera is disabled due to low bandwidth (${bandwidthKbps} kbps). Wait for your connection to recover above 300 kbps.`,
+          'warning',
+          5000
+        );
+        return;
+      }
+
       const videoTracks = userStream ? userStream.getVideoTracks() : [];
       
       if (videoTracks.length > 0) {
@@ -1217,7 +1572,7 @@ const EnhancedLiveMeeting = ({
       console.error("Error toggling video track:", err);
       showNotification("Could not start camera. Make sure it isn't in use by another app.", "error");
     }
-  }, [isVideoOn, userStream, selectedCameraId, showNotification]);
+  }, [isVideoOn, isAudioOnlyMode, bandwidthKbps, userStream, selectedCameraId, showNotification]);
 
   // Canvas composition for dual-stream (screen + camera)
   const createCompositeStream = useCallback((screenStream, cameraStream) => {
@@ -2379,11 +2734,27 @@ const EnhancedLiveMeeting = ({
         <div className="topbar-right">
           <button 
             className="view-toggle-btn"
-            onClick={() => setViewMode(viewMode === 'speaker' ? 'gallery' : 'speaker')}
-            title={`Switch to ${viewMode === 'speaker' ? 'gallery' : 'speaker'} view`}
+            onClick={() => setViewMode(prev => {
+              if (prev === 'speaker') return 'gallery';
+              if (prev === 'gallery') return 'spatial';
+              return 'speaker';
+            })}
+            title={
+              viewMode === 'speaker' 
+                ? 'Switch to Gallery view' 
+                : viewMode === 'gallery' 
+                  ? 'Switch to Spatial 3D view' 
+                  : 'Switch to Speaker view'
+            }
           >
             <FaTh />
-            <span>{viewMode === 'speaker' ? 'Gallery' : 'Speaker'} View</span>
+            <span>
+              {viewMode === 'speaker' 
+                ? 'Gallery' 
+                : viewMode === 'gallery' 
+                  ? 'Spatial 3D' 
+                  : 'Speaker'} View
+            </span>
           </button>
           
           <div className="participants-count">
@@ -2394,7 +2765,8 @@ const EnhancedLiveMeeting = ({
       </div>
 
       {/* Enhanced Main Video Area */}
-      <div className="meeting-content">
+      <div className="meeting-content" style={{ position: 'relative' }}>
+        <MeetingBackground3D />
         <div className={`video-area ${viewMode}-view`}>
           {viewMode === 'speaker' ? (
             <div className="speaker-layout">
@@ -2422,7 +2794,13 @@ const EnhancedLiveMeeting = ({
                     {/* Camera picture-in-picture when screen sharing */}
                     <div className="camera-pip">
                       {!isVideoOn && (
-                        <CameraOffPlaceholder name={userName} isHost={isHost} size="small" />
+                        <CameraOffPlaceholder 
+                          name={userName} 
+                          isHost={isHost} 
+                          size="small" 
+                          isHandRaised={isHandRaised}
+                          isSpeaking={localSpeaking}
+                        />
                       )}
                       <video 
                         ref={userVideo} 
@@ -2441,7 +2819,13 @@ const EnhancedLiveMeeting = ({
                   // Normal camera view when not screen sharing
                   <>
                     {!isVideoOn && (
-                      <CameraOffPlaceholder name={userName} isHost={isHost} size="normal" />
+                      <CameraOffPlaceholder 
+                        name={userName} 
+                        isHost={isHost} 
+                        size="normal" 
+                        isHandRaised={isHandRaised}
+                        isSpeaking={localSpeaking}
+                      />
                     )}
                     <video 
                       ref={userVideo} 
@@ -2482,6 +2866,89 @@ const EnhancedLiveMeeting = ({
                 </div>
               )}
             </div>
+          ) : viewMode === 'spatial' ? (
+            <SpatialMeetingRoom participantsCount={activePeers.length + 1}>
+              {isScreenSharing ? (
+                <>
+                  <div className="video-tile screen-share-tile">
+                    <video 
+                      ref={screenShareVideo} 
+                      autoPlay 
+                      playsInline 
+                      muted 
+                      className="participant-video screen-share-video"
+                    />
+                    <div className="video-overlay">
+                      <div className="participant-name">
+                        {userName} (You) - Screen Share
+                        {isHost && <FaCrown className="host-badge" />}
+                        {!isAudioOn && <FaMicrophoneSlash className="muted-icon" />}
+                        {isHandRaised && <FaHandPaper className="hand-raised-icon" />}
+                        <FaDesktop className="screen-share-icon" />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="video-tile camera-tile">
+                    {!isVideoOn ? (
+                      <CameraOffPlaceholder name={userName} isHost={isHost} size="normal" isHandRaised={isHandRaised} isSpeaking={localSpeaking} />
+                    ) : (
+                      <video 
+                        ref={userVideo} 
+                        autoPlay 
+                        playsInline 
+                        muted 
+                        className="participant-video camera-video"
+                      />
+                    )}
+                    <div className="video-overlay">
+                      <div className="participant-name">
+                        {userName} (You) - Camera
+                        {isHost && <FaCrown className="host-badge" />}
+                        {!isAudioOn && <FaMicrophoneSlash className="muted-icon" />}
+                        {isHandRaised && <FaHandPaper className="hand-raised-icon" />}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="video-tile">
+                  {!isVideoOn ? (
+                    <CameraOffPlaceholder name={userName} isHost={isHost} size="normal" isHandRaised={isHandRaised} isSpeaking={localSpeaking} />
+                  ) : (
+                    <video 
+                      ref={userVideo} 
+                      autoPlay 
+                      playsInline 
+                      muted 
+                      className="participant-video"
+                    />
+                  )}
+                  <div className="video-overlay">
+                    <div className="participant-name">
+                      {userName} (You) - Camera
+                      {isHost && <FaCrown className="host-badge" />}
+                      {!isAudioOn && <FaMicrophoneSlash className="muted-icon" />}
+                      {isHandRaised && <FaHandPaper className="hand-raised-icon" />}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {activePeers.map((peer, index) => (
+                <EnhancedVideoTile 
+                  key={peer.socketId || index} 
+                  peer={peer.peer} 
+                  userName={peer.userName}
+                  isAudioOn={peer.isAudioOn}
+                  isVideoOn={peer.isVideoOn}
+                  isHandRaised={peer.isHandRaised}
+                  isScreenSharing={peer.isScreenSharing}
+                  hasCamera={peer.hasCamera !== false}
+                  isHost={peer.isHost}
+                />
+              ))}
+            </SpatialMeetingRoom>
           ) : (
             <div className="gallery-layout">
               <div className="video-grid">
@@ -2918,8 +3385,8 @@ const EnhancedLiveMeeting = ({
       )}
 
       {/* Enhanced Chat Panel */}
-      {showChat && (
-        <div className="chat-panel">
+      <AnimatedPanel3D isOpen={showChat} type="card-flip">
+        <div className="chat-panel" style={{ height: '100%' }}>
           <div className="panel-header">
             <h3>Chat & Shared Files</h3>
             <button 
@@ -3024,11 +3491,11 @@ const EnhancedLiveMeeting = ({
             );
           })()}
         </div>
-      )}
+      </AnimatedPanel3D>
 
       {/* Enhanced Participants Panel */}
-      {showParticipants && (
-        <div className="participants-panel">
+      <AnimatedPanel3D isOpen={showParticipants} type="depth-push">
+        <div className="participants-panel" style={{ height: '100%' }}>
           <div className="panel-header">
             <h3>Participants ({totalParticipants})</h3>
             <button 
@@ -3218,7 +3685,7 @@ const EnhancedLiveMeeting = ({
             </div>
           )}
         </div>
-      )}
+      </AnimatedPanel3D>
       
       {/* Host Security Center Modal */}
       {showSecurityModal && isHost && (
@@ -3331,6 +3798,28 @@ const EnhancedLiveMeeting = ({
         meetingId={roomId}
       />
       
+      {/* ── Enterprise: Bandwidth Monitor Banner ─────────────────────────── */}
+      <BandwidthMonitorBanner
+        isAudioOnlyMode={isAudioOnlyMode && !bannerDismissed}
+        bandwidthKbps={bandwidthKbps}
+        jitterMs={jitterMs}
+        packetLossPct={packetLossPct}
+        onDismiss={() => setBannerDismissed(true)}
+        onReenableVideo={() => {
+          if (bandwidthKbps >= 300) {
+            setIsAudioOnlyMode(false);
+            setBannerDismissed(true);
+            // Re-enable the video track in the stream
+            if (userStreamRef.current) {
+              userStreamRef.current.getVideoTracks().forEach(t => { t.enabled = true; });
+            }
+            setIsVideoOn(true);
+            socketRef.current?.emit('toggle-video', true);
+            showNotification('📷 Camera re-enabled. Bandwidth has recovered.', 'success', 3000);
+          }
+        }}
+      />
+
       {/* Notifications Toast */}
       {notifications.length > 0 && (
         <div className="notifications-container">
@@ -3354,4 +3843,10 @@ const EnhancedLiveMeeting = ({
   );
 };
 
-export default React.memo(EnhancedLiveMeeting);
+const LiveMeetingWithThreeJS = (props) => (
+  <ThreeJSProvider>
+    <EnhancedLiveMeeting {...props} />
+  </ThreeJSProvider>
+);
+
+export default React.memo(LiveMeetingWithThreeJS);
