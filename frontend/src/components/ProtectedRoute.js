@@ -27,7 +27,7 @@ const ProtectedRoute = ({ children, requiredRole = null, fallbackRoute = '/' }) 
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
     // Save the current location so we can redirect back after login
-    return <Navigate to={fallbackRoute} state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location, message: "Please login first to join the meeting." }} replace />;
   }
 
   // Check role-based access if required

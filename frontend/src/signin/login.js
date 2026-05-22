@@ -152,6 +152,7 @@ const LoginPage = () => {
   const [isLoading,    setIsLoading]   = useState(false);
   const [error,        setError]       = useState("");
   const [success,      setSuccess]     = useState("");
+  const [infoMessage,  setInfoMessage] = useState("");
   const [loginContext, setLoginContext] = useState(null);
 
   // Forgot / Reset state
@@ -161,7 +162,7 @@ const LoginPage = () => {
   const [confirmPassword,setConfirmPassword] = useState("");
   const [showNewPass,    setShowNewPass]    = useState(false);
 
-  // Detect meeting/contact login context
+  // Detect meeting/contact login context & message states
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const returnUrl = params.get("returnUrl");
@@ -176,9 +177,13 @@ const LoginPage = () => {
     } else if (type === "contact") {
       setLoginContext({ type: "contact", returnUrl: returnUrl ? decodeURIComponent(returnUrl) : null });
     }
-  }, [location.search]);
 
-  const clearMessages = useCallback(() => { setError(""); setSuccess(""); }, []);
+    if (location.state?.message) {
+      setInfoMessage(location.state.message);
+    }
+  }, [location.search, location.state]);
+
+  const clearMessages = useCallback(() => { setError(""); setSuccess(""); setInfoMessage(""); }, []);
 
   /* ── LOGIN ──────────────────────────────────────────── */
   const handleLogin = async (e) => {
@@ -188,6 +193,12 @@ const LoginPage = () => {
 
     try {
       const result = await login({ email, password, rememberMe });
+
+      // First priority: Redirect to intercepted page (like direct meeting live links)
+      if (location.state?.from) {
+        navigate(location.state.from.pathname + (location.state.from.search || ""), { replace: true });
+        return;
+      }
 
       if (loginContext?.type === "meeting") {
         navigate(loginContext.returnUrl || "/join", { replace: true });
@@ -346,6 +357,12 @@ const LoginPage = () => {
             <div className="success-alert" style={{ marginBottom: 20 }}>
               <span>✅</span>
               <span style={{ color: "#059669", fontSize: "0.9rem", fontWeight: 500 }}>{success}</span>
+            </div>
+          )}
+          {infoMessage && (
+            <div className="info-alert" style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 12, padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 20 }}>
+              <span>ℹ️</span>
+              <span style={{ color: "#1e40af", fontSize: "0.9rem", fontWeight: 500, lineHeight: 1.4 }}>{infoMessage}</span>
             </div>
           )}
 

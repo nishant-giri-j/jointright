@@ -276,6 +276,8 @@ const EnhancedLiveMeeting = ({
   const peersRef = useRef([]);
   const chatContainerRef = useRef();
   const mediaRecorderRef = useRef(null);
+  const userStreamRef = useRef(null);
+  const mediaInitializedRef = useRef(false);
 
   // Main State
   const [peers, setPeers] = useState([]);
@@ -286,6 +288,24 @@ const EnhancedLiveMeeting = ({
   const [screenStream, setScreenStream] = useState(null);
   const [supportsScreenShare, setSupportsScreenShare] = useState(false);
   const [compositeStreamCleanup, setCompositeStreamCleanup] = useState(null);
+  const [meetingDetails, setMeetingDetails] = useState(null);
+
+  // Fetch meeting details including password on load
+  useEffect(() => {
+    if (!roomId) return;
+    const fetchDetails = async () => {
+      try {
+        const response = await fetch(`${SOCKET_SERVER_URL}/api/meetings/meeting/${roomId}`);
+        const data = await response.json();
+        if (data && data.meeting) {
+          setMeetingDetails(data.meeting);
+        }
+      } catch (err) {
+        console.warn("Error fetching meeting details:", err);
+      }
+    };
+    fetchDetails();
+  }, [roomId]);
 
   // UI State
   const [viewMode, setViewMode] = useState('speaker');
@@ -380,87 +400,98 @@ const EnhancedLiveMeeting = ({
     return cleanup;
   }, [roomId, userName]);
 
-  // Enhanced connection initialization
+  // Enhanced connection initialization - CONNECTS SOCKET FIRST WITHOUT ASYNC CAMERA BLOCK
   const initializeConnection = async () => {
     try {
-      // Get user media with enhanced constraints
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          width: { ideal: 1280 }, 
-          height: { ideal: 720 },
-          facingMode: 'user',
-          frameRate: { ideal: 30 }
-        },
-        audio: { 
-          echoCancellation: true, 
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 44100
-        }
-      });
-
-      setUserStream(stream);
-      if (userVideo.current) {
-        userVideo.current.srcObject = stream;
-      }
-
-      // Enhanced screen sharing support detection
-      const isScreenShareSupported = navigator.mediaDevices && 
-                                   navigator.mediaDevices.getDisplayMedia && 
-                                   (window.location.protocol === 'https:' || window.location.hostname === 'localhost');
-      setSupportsScreenShare(isScreenShareSupported);
-
-      // Initialize socket with enhanced configuration
+      // Connect to socket first (highly lightweight, instant join)
       socketRef.current = io(SOCKET_SERVER_URL, {
         transports: ['websocket'],
         upgrade: false,
         rememberUpgrade: false
       });
 
-      setupEnhancedSocketHandlers(stream);
+      setupEnhancedSocketHandlers();
 
     } catch (error) {
-      console.error("Error accessing media:", error);
+      console.error("Error connecting to socket server:", error);
+      showNotification("Failed to connect to server. Retrying...", "error");
+    }
+  };
+
+  // Delayed camera & mic capture - ONLY executed when the participant is admitted to the meeting!
+  const startMediaAndWebRTC = async () => {
+    if (mediaInitializedRef.current) return;
+    mediaInitializedRef.current = true;
+
+    try {
+      showNotification("Initializing audio and video tracks...", "info", 2000);
       
-      // Enhanced error handling with user-friendly messages
-      const errorMessages = {
-        'NotFoundError': 'No camera or microphone found. Please connect your devices and refresh.',
-        'NotAllowedError': 'Camera and microphone access denied. Please allow permissions and refresh.',
-        'NotReadableError': 'Camera or microphone is already in use by another application.',
-        'OverconstrainedError': 'Camera settings not supported. Trying with default settings...',
-        'AbortError': 'Media access was interrupted. Please try again.',
-        'NotSupportedError': 'Your browser doesn\'t support the required media features.'
-      };
-
-      const userMessage = errorMessages[error.name] || "Please allow camera and microphone access to join the meeting.";
-      alert(userMessage);
-
-      // Try fallback with basic constraints if overconstrained
-      if (error.name === 'OverconstrainedError') {
-        try {
-          const fallbackStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true
-          });
-          setUserStream(fallbackStream);
-          if (userVideo.current) {
-            userVideo.current.srcObject = fallbackStream;
+      // Get user media with robust resolution-matching constraints
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { 
+            width: { ideal: 1280 }, 
+            height: { ideal: 720 },
+            facingMode: 'user',
+            frameRate: { ideal: 30 }
+          },
+          audio: { 
+            echoCancellation: true, 
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: 44100
           }
-          // FIX: also connect socket on fallback stream
-          const isScreenShareSupported = navigator.mediaDevices?.getDisplayMedia &&
-            (window.location.protocol === 'https:' || window.location.hostname === 'localhost');
-          setSupportsScreenShare(isScreenShareSupported);
-          socketRef.current = io(SOCKET_SERVER_URL, { transports: ['websocket'], upgrade: false });
-          setupEnhancedSocketHandlers(fallbackStream);
-        } catch (fallbackError) {
-          console.error("Fallback media access failed:", fallbackError);
-        }
+        });
+      } catch (err) {
+        console.warn("Standard camera/mic constraints failed, trying basic fallback...", err);
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true
+        });
+      }
+
+      setUserStream(stream);
+      userStreamRef.current = stream;
+      if (userVideo.current) {
+        userVideo.current.srcObject = stream;
+      }
+
+      // Detect screen share capabilities
+      const isScreenShareSupported = navigator.mediaDevices && 
+                                   navigator.mediaDevices.getDisplayMedia && 
+                                   (window.location.protocol === 'https:' || window.location.hostname === 'localhost');
+      setSupportsScreenShare(isScreenShareSupported);
+
+      // Tell backend server that we have initialized media and are ready to join WebRTC mesh
+      if (socketRef.current) {
+        socketRef.current.emit("ready-for-webrtc");
+      }
+
+      // Enumerate available devices for on-the-fly switching selectors
+      enumerateDevices();
+
+    } catch (error) {
+      console.error("Failed to access camera or microphone completely:", error);
+      
+      const errorMessages = {
+        'NotFoundError': 'No microphone or camera hardware found. Joining as a viewer.',
+        'NotAllowedError': 'Camera/microphone permissions were denied. Joining as a viewer.',
+        'NotReadableError': 'Camera is already in use by another application. Joining as a viewer.'
+      };
+      
+      const userMessage = errorMessages[error.name] || 'Could not access audio/video devices. Joining as a viewer.';
+      showNotification(userMessage, 'warning', 6000);
+
+      // If media access fails completely, we still trigger ready-for-webrtc so they can act as viewer!
+      if (socketRef.current) {
+        socketRef.current.emit("ready-for-webrtc");
       }
     }
   };
 
-  // Enhanced socket handlers with better error handling and reconnection
-  const setupEnhancedSocketHandlers = (stream) => {
+  // Enhanced socket handlers with stream-less structure reading from userStreamRef
+  const setupEnhancedSocketHandlers = () => {
     const socket = socketRef.current;
 
     // Connection quality monitoring
@@ -484,25 +515,29 @@ const EnhancedLiveMeeting = ({
     // Enhanced host status handling
     socket.on("host-status", (data) => {
       setIsHost(data.isHost);
-      setIsAdmitted(data.isHost || data.isAdmitted);
+      const admitted = data.isHost || data.isAdmitted;
+      setIsAdmitted(admitted);
       
       if (data.isHost) {
         console.log('You are the host of this meeting');
         setMeetingState('active');
+        startMediaAndWebRTC();
       } else {
-        setIsInWaitingRoom(!data.isAdmitted);
+        setIsInWaitingRoom(!admitted);
         setMeetingState(data.meetingStarted ? 'active' : 'waiting');
-        if (!data.isAdmitted) {
+        if (!admitted) {
           setWaitingMessage('Waiting for the host to admit you...');
+        } else {
+          startMediaAndWebRTC();
         }
       }
     });
 
-    // Enhanced peer handling with error recovery
+    // Enhanced peer handling with error recovery - reads from userStreamRef.current
     socket.on("existing-users", (users) => {
       const newPeers = users.map(user => {
         try {
-          const peer = createPeer(user.socketId, socket.id, stream);
+          const peer = createPeer(user.socketId, socket.id, userStreamRef.current);
           peersRef.current.push({ peerID: user.socketId, peer, userName: user.userName, userId: user.userId, isHost: user.isHost });
           return { 
             peer, 
@@ -526,7 +561,7 @@ const EnhancedLiveMeeting = ({
 
     socket.on("user-connected", (userInfo) => {
       try {
-        const peer = addPeer(null, userInfo.socketId, stream);
+        const peer = addPeer(null, userInfo.socketId, userStreamRef.current);
         peersRef.current.push({ peerID: userInfo.socketId, peer, userName: userInfo.userName, userId: userInfo.userId, isHost: userInfo.isHost });
         const newPeer = { 
           peer, 
@@ -635,6 +670,7 @@ const EnhancedLiveMeeting = ({
       setIsAdmitted(true);
       setMeetingState('active');
       setWaitingMessage('');
+      startMediaAndWebRTC();
     });
 
     socket.on("admission-rejected", (data) => {
@@ -2376,11 +2412,14 @@ const EnhancedLiveMeeting = ({
           </button>
 
           <button className="dropdown-item" onClick={() => {
-            navigator.clipboard.writeText(window.location.href);
-            showNotification("Meeting link copied to clipboard!", "success");
+            const meetingTitle = meetingDetails?.title || "JointRight Meeting";
+            const pwd = meetingDetails?.password || "";
+            const inviteText = `You're invited to join my meeting!\n\nMeeting: "${meetingTitle}"\n\n🔗 Direct Join Link: ${window.location.origin}/live/${roomId}\n\nOr use credentials:\nMeeting ID: ${roomId}\nPassword: ${pwd}`;
+            navigator.clipboard.writeText(inviteText);
+            showNotification("Complete invite details copied to clipboard!", "success");
           }}>
             <FaUserPlus />
-            <span>Copy Join Link</span>
+            <span>Copy Join Details</span>
           </button>
         </div>
       )}

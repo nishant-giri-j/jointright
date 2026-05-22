@@ -15,7 +15,7 @@ const MeetingLinkShare = ({ meeting, isOpen, onClose }) => {
 
   if (!isOpen || !meeting) return null;
 
-  // No direct join links - only meeting ID and password sharing
+  // Direct join link and credential sharing
 
   const copyToClipboard = async (text, type) => {
     try {
@@ -34,43 +34,45 @@ const MeetingLinkShare = ({ meeting, isOpen, onClose }) => {
     }
   };
 
+  const getDirectLink = () => `${window.location.origin}/live/${meeting.meetingId}`;
+
   const shareViaWhatsApp = () => {
-    const message = `Join my meeting: "${meeting.title}"\n\nMeeting ID: ${meeting.meetingId}\nPassword: ${meeting.password}\nScheduled: ${new Date(meeting.scheduledAt).toLocaleString()}\n\nTo join: Go to the app and enter the Meeting ID and Password above.`;
+    const message = `Join my meeting: "${meeting.title}"\n\n🔗 Direct Join Link: ${getDirectLink()}\n\nOr use credentials:\nMeeting ID: ${meeting.meetingId}\nPassword: ${meeting.password}\nScheduled: ${new Date(meeting.scheduledAt).toLocaleString()}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const shareViaTelegram = () => {
-    const message = `Join my meeting: "${meeting.title}"\n\nMeeting ID: ${meeting.meetingId}\nPassword: ${meeting.password}\nScheduled: ${new Date(meeting.scheduledAt).toLocaleString()}\n\nTo join: Go to the app and enter the Meeting ID and Password above.`;
-    window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.origin + '/join')}&text=${encodeURIComponent(message)}`, '_blank');
+    const message = `Join my meeting: "${meeting.title}"\n\n🔗 Direct Join Link: ${getDirectLink()}\n\nOr use credentials:\nMeeting ID: ${meeting.meetingId}\nPassword: ${meeting.password}\nScheduled: ${new Date(meeting.scheduledAt).toLocaleString()}`;
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(getDirectLink())}&text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const shareViaEmail = () => {
     const subject = `Join my meeting: ${meeting.title}`;
-    const body = `You're invited to join my meeting!\n\nMeeting: ${meeting.title}\nScheduled: ${new Date(meeting.scheduledAt).toLocaleString()}\n${meeting.description ? `Description: ${meeting.description}\n` : ''}\nMeeting ID: ${meeting.meetingId}\nPassword: ${meeting.password}\n\nTo join: Go to ${window.location.origin}/join and enter the Meeting ID and Password above.\n\nSee you there!`;
+    const body = `You're invited to join my meeting!\n\nMeeting: ${meeting.title}\nScheduled: ${new Date(meeting.scheduledAt).toLocaleString()}\n${meeting.description ? `Description: ${meeting.description}\n` : ''}\n🔗 Direct Join Link: ${getDirectLink()}\n\nOr use credentials:\nMeeting ID: ${meeting.meetingId}\nPassword: ${meeting.password}\n\nSee you there!`;
     
     window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
   };
 
   const shareViaTwitter = () => {
-    const message = `Join my meeting: "${meeting.title}" scheduled for ${new Date(meeting.scheduledAt).toLocaleString()}. Meeting ID: ${meeting.meetingId}`;
+    const message = `Join my meeting: "${meeting.title}" scheduled for ${new Date(meeting.scheduledAt).toLocaleString()}. Join here: ${getDirectLink()}`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const shareViaLinkedIn = () => {
     const title = `Join my meeting: ${meeting.title}`;
-    const summary = `Meeting scheduled for ${new Date(meeting.scheduledAt).toLocaleString()}. Meeting ID: ${meeting.meetingId}`;
-    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.origin + '/join')}&title=${encodeURIComponent(title)}&summary=${encodeURIComponent(summary)}`, '_blank');
+    const summary = `Meeting scheduled for ${new Date(meeting.scheduledAt).toLocaleString()}.\nDirect Link: ${getDirectLink()}\nMeeting ID: ${meeting.meetingId}`;
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(getDirectLink())}&title=${encodeURIComponent(title)}&summary=${encodeURIComponent(summary)}`, '_blank');
   };
 
   const shareViaSMS = () => {
-    const message = `Join my meeting: "${meeting.title}"\nScheduled: ${new Date(meeting.scheduledAt).toLocaleString()}\nMeeting ID: ${meeting.meetingId}\nPassword: ${meeting.password}\nTo join: Go to ${window.location.origin}/join and enter the Meeting ID and Password`;
+    const message = `Join my meeting: "${meeting.title}"\nScheduled: ${new Date(meeting.scheduledAt).toLocaleString()}\n🔗 Direct Join Link: ${getDirectLink()}\nMeeting ID: ${meeting.meetingId}\nPassword: ${meeting.password}`;
     window.open(`sms:?body=${encodeURIComponent(message)}`, '_blank');
   };
 
   const generateQRCode = () => {
-    // QR code points to join page instead of direct meeting access
-    const joinPageUrl = `${window.location.origin}/join`;
-    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(joinPageUrl)}`;
+    // QR code points directly to the meeting room
+    const directUrl = getDirectLink();
+    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(directUrl)}`;
   };
 
   return (
@@ -103,6 +105,22 @@ const MeetingLinkShare = ({ meeting, isOpen, onClose }) => {
 
           {/* Share Links */}
           <div className="share-links">
+            <div className="share-option">
+              <label>Direct Join Link:</label>
+              <div className="credential-item" style={{ marginBottom: '16px', justifyContent: 'space-between', width: '100%' }}>
+                <span style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '85%' }}>
+                  {getDirectLink()}
+                </span>
+                <button 
+                  className={`copy-btn small ${copied === 'link' ? 'copied' : ''}`}
+                  onClick={() => copyToClipboard(getDirectLink(), 'link')}
+                  style={{ minWidth: '32px' }}
+                >
+                  {copied === 'link' ? <FaCheck /> : <FaCopy />}
+                </button>
+              </div>
+            </div>
+
             <div className="share-option">
               <label>Meeting ID & Password:</label>
               <div className="credentials-group">

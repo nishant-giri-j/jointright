@@ -191,13 +191,13 @@ const MeetingDetailModal = ({ meeting, isOpen, onClose, onJoinMeeting, onShareMe
               <div className="link-field">
                 <input 
                   type="text" 
-                  value={meeting.link || `${window.location.origin}/meeting/${meeting.meetingId}`}
+                  value={`${window.location.origin}/live/${meeting.meetingId}`}
                   readOnly
                   className="meeting-link-input"
                 />
                 <button 
                   className="copy-btn" 
-                  onClick={() => copyToClipboard(meeting.link || `${window.location.origin}/meeting/${meeting.meetingId}`)}
+                  onClick={() => copyToClipboard(`${window.location.origin}/live/${meeting.meetingId}`)}
                 >
                   <FaCopy />
                 </button>

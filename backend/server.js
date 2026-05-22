@@ -315,30 +315,52 @@ io.on("connection", (socket) => {
         return;
       }
 
-      // 3. User is Admitted: Join the Room
+      // 3. User is Admitted: Confirm admission immediately to prompt frontend media capture
+      logger.info(`User ${userName} (${userId}) admitted to room: ${roomId} (Waiting for WebRTC ready)`);
+      socket.emit("admitted-to-meeting");
+
+      // If the host just joined, immediately push the waiting room list to them
+      if (isHost) {
+        updateHostsWaitingList(roomId);
+      }
+
+    } catch (err) {
+      logger.error(`Error in join-room socket: ${err.message}`);
+    }
+  });
+
+  // Ready for WebRTC: Client triggers this once their media tracks are successfully initialized
+  socket.on("ready-for-webrtc", async () => {
+    try {
+      const { roomId, userId, userName, isHost, cyberScore } = socket;
+      if (!roomId) return;
+
+      // Join the low-level room mapping
       socket.join(roomId);
+      
+      if (!activeRooms.has(roomId)) {
+        activeRooms.set(roomId, new Map());
+      }
+      
       activeRooms.get(roomId).set(socket.id, {
         socketId: socket.id,
         userId,
         userName,
         isHost,
-        cyberScore: cyberScoreData,
+        cyberScore,
         isAudioOn: true,
         isVideoOn: true
       });
 
-      logger.info(`User ${userName} (${userId}) joined room: ${roomId} as ${isHost ? 'host' : 'participant'}`);
+      logger.info(`User ${userName} (${userId}) active in WebRTC pool for room: ${roomId}`);
 
-      // Confirm admission
-      socket.emit("admitted-to-meeting");
-
-      // Notify other clients that this user joined
+      // Notify other clients in room that this user is active
       socket.to(roomId).emit("user-connected", {
         socketId: socket.id,
         userId,
         userName,
         isHost,
-        cyberScore: cyberScoreData
+        cyberScore
       });
 
       // Send the list of existing active participants to this client
@@ -351,7 +373,8 @@ io.on("connection", (socket) => {
       socket.emit("existing-users", existingUsers);
 
       // If meeting was not started yet and this is the host, mark as started
-      if (isHost && meeting.status === "scheduled") {
+      const meeting = await Meeting.findOne({ meetingId: roomId });
+      if (meeting && isHost && meeting.status === "scheduled") {
         meeting.status = "ongoing";
         meeting.startedAt = new Date();
         await meeting.save();
@@ -359,7 +382,7 @@ io.on("connection", (socket) => {
       }
 
     } catch (err) {
-      logger.error(`Error in join-room socket: ${err.message}`);
+      logger.error(`Error in ready-for-webrtc: ${err.message}`);
     }
   });
 
@@ -380,35 +403,9 @@ io.on("connection", (socket) => {
 
         const clientSocket = io.sockets.sockets.get(participantId);
         if (clientSocket) {
-          clientSocket.join(roomId);
           clientSocket.isAdmitted = true;
+          // Prompt client to obtain camera stream and then signal ready
           clientSocket.emit("admitted-to-meeting");
-
-          activeRooms.get(roomId).set(participantId, {
-            socketId: participantId,
-            userId: participant.userId,
-            userName: participant.userName,
-            isHost: false,
-            cyberScore: participant.cyberScore,
-            isAudioOn: true,
-            isVideoOn: true
-          });
-
-          clientSocket.to(roomId).emit("user-connected", {
-            socketId: participantId,
-            userId: participant.userId,
-            userName: participant.userName,
-            isHost: false,
-            cyberScore: participant.cyberScore
-          });
-
-          const existingUsers = [];
-          for (const [sid, p] of activeRooms.get(roomId).entries()) {
-            if (sid !== participantId) {
-              existingUsers.push(p);
-            }
-          }
-          clientSocket.emit("existing-users", existingUsers);
         }
 
         updateHostsWaitingList(roomId);
