@@ -290,46 +290,6 @@ const EnhancedLiveMeeting = ({
   const [compositeStreamCleanup, setCompositeStreamCleanup] = useState(null);
   const [meetingDetails, setMeetingDetails] = useState(null);
 
-  // Fetch meeting details including password on load
-  useEffect(() => {
-    if (!roomId) return;
-    const fetchDetails = async () => {
-      try {
-        const response = await fetch(`${SOCKET_SERVER_URL}/api/meetings/meeting/${roomId}`);
-        const data = await response.json();
-        if (data && data.meeting) {
-          setMeetingDetails(data.meeting);
-        }
-      } catch (err) {
-        console.warn("Error fetching meeting details:", err);
-      }
-    };
-    fetchDetails();
-  }, [roomId]);
-
-  // Passcode verification logic
-  useEffect(() => {
-    if (!meetingDetails) return;
-    
-    const isRoomHost = isHost || meetingDetails.creator === user?.email;
-    const meetingPassword = meetingDetails.password;
-    
-    if (!meetingPassword || isRoomHost) {
-      setIsPasscodeVerified(true);
-      return;
-    }
-    
-    // Check various bypass methods
-    const queryPwd = new URLSearchParams(window.location.search).get('pwd');
-    const statePwd = location.state?.meetingData?.password;
-    const cachedPwd = localStorage.getItem(`verified_passcode_${roomId}`);
-    
-    if (queryPwd === meetingPassword || statePwd === meetingPassword || cachedPwd === meetingPassword) {
-      setIsPasscodeVerified(true);
-      localStorage.setItem(`verified_passcode_${roomId}`, meetingPassword);
-    }
-  }, [meetingDetails, isHost, user, location.state, roomId]);
-
   // UI State
   const [viewMode, setViewMode] = useState('speaker');
   const [showChat, setShowChat] = useState(false);
@@ -408,6 +368,46 @@ const EnhancedLiveMeeting = ({
     id: userId,
     name: userName
   };
+
+  // Fetch meeting details including password on load
+  useEffect(() => {
+    if (!roomId) return;
+    const fetchDetails = async () => {
+      try {
+        const response = await fetch(`${SOCKET_SERVER_URL}/api/meetings/meeting/${roomId}`);
+        const data = await response.json();
+        if (data && data.meeting) {
+          setMeetingDetails(data.meeting);
+        }
+      } catch (err) {
+        console.warn("Error fetching meeting details:", err);
+      }
+    };
+    fetchDetails();
+  }, [roomId]);
+
+  // Passcode verification logic
+  useEffect(() => {
+    if (!meetingDetails) return;
+    
+    const isRoomHost = isHost || meetingDetails.creator === user?.email;
+    const meetingPassword = meetingDetails.password;
+    
+    if (!meetingPassword || isRoomHost) {
+      setIsPasscodeVerified(true);
+      return;
+    }
+    
+    // Check various bypass methods
+    const queryPwd = new URLSearchParams(window.location.search).get('pwd');
+    const statePwd = location.state?.meetingData?.password;
+    const cachedPwd = localStorage.getItem(`verified_passcode_${roomId}`);
+    
+    if (queryPwd === meetingPassword || statePwd === meetingPassword || cachedPwd === meetingPassword) {
+      setIsPasscodeVerified(true);
+      localStorage.setItem(`verified_passcode_${roomId}`, meetingPassword);
+    }
+  }, [meetingDetails, isHost, user, location.state, roomId]);
   
   // Notification helper — defined early so it can be used in all hooks below
   const showNotification = useCallback((message, type = 'info', duration = 5000) => {
