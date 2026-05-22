@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
+import * as THREE from 'three';
 import { useThreeJS } from '../contexts/ThreeJSContext';
 
 // The 3D Meeting Table in the center of the room
@@ -32,6 +33,45 @@ const ConferenceTable = () => {
   );
 };
 
+// Synchronizes the Three.js camera position and orientation with the Web Audio listener
+const SpatialAudioListenerSync = ({ audioContext }) => {
+  useFrame(({ camera }) => {
+    if (!audioContext || audioContext.state === 'closed') return;
+    const listener = audioContext.listener;
+
+    try {
+      // Set listener position
+      if (listener.positionX) {
+        listener.positionX.setTargetAtTime(camera.position.x, audioContext.currentTime, 0.05);
+        listener.positionY.setTargetAtTime(camera.position.y, audioContext.currentTime, 0.05);
+        listener.positionZ.setTargetAtTime(camera.position.z, audioContext.currentTime, 0.05);
+      } else {
+        listener.setPosition(camera.position.x, camera.position.y, camera.position.z);
+      }
+
+      // Calculate forward and up vectors in world space
+      const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+      const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+
+      // Set listener orientation
+      if (listener.forwardX) {
+        listener.forwardX.setTargetAtTime(forward.x, audioContext.currentTime, 0.05);
+        listener.forwardY.setTargetAtTime(forward.y, audioContext.currentTime, 0.05);
+        listener.forwardZ.setTargetAtTime(forward.z, audioContext.currentTime, 0.05);
+        listener.upX.setTargetAtTime(up.x, audioContext.currentTime, 0.05);
+        listener.upY.setTargetAtTime(up.y, audioContext.currentTime, 0.05);
+        listener.upZ.setTargetAtTime(up.z, audioContext.currentTime, 0.05);
+      } else {
+        listener.setOrientation(forward.x, forward.y, forward.z, up.x, up.y, up.z);
+      }
+    } catch (e) {
+      console.warn('Failed to update spatial audio listener orientation:', e);
+    }
+  });
+
+  return null;
+};
+
 // Main SpatialMeetingRoom Component
 const SpatialMeetingRoom = ({ children, participantsCount }) => {
   const { is3DEnabled, performanceMode } = useThreeJS();
@@ -40,6 +80,16 @@ const SpatialMeetingRoom = ({ children, participantsCount }) => {
   const tiles = useMemo(() => {
     return React.Children.toArray(children).filter(Boolean);
   }, [children]);
+
+  // Find a valid audioContext from children props
+  const audioContext = useMemo(() => {
+    for (const tile of tiles) {
+      if (tile.props && tile.props.audioContext) {
+        return tile.props.audioContext;
+      }
+    }
+    return null;
+  }, [tiles]);
 
   // Radius of the circle based on participant count
   const radius = useMemo(() => {
@@ -67,6 +117,9 @@ const SpatialMeetingRoom = ({ children, participantsCount }) => {
         dpr={performanceMode === 'low' ? [0.6, 1] : [1, 1.5]}
         gl={{ antialias: performanceMode !== 'low' }}
       >
+        {/* Synchronize Web Audio listener with Three.js camera */}
+        {audioContext && <SpatialAudioListenerSync audioContext={audioContext} />}
+
         {/* Quality lighting for depth */}
         <ambientLight intensity={0.7} />
         <directionalLight position={[5, 10, 5]} intensity={1.5} color="#ffffff" />
@@ -91,6 +144,12 @@ const SpatialMeetingRoom = ({ children, participantsCount }) => {
             
             // Calculate rotation to face the center of the table (plus tilt up)
             const rotY = angle + Math.PI;
+
+            // Clone the tile to inject its 3D position and force spatial viewMode
+            const clonedTile = React.cloneElement(tile, {
+              spatialPosition: [x, 0.25, z],
+              viewMode: 'spatial'
+            });
 
             return (
               <group 
@@ -128,7 +187,7 @@ const SpatialMeetingRoom = ({ children, participantsCount }) => {
                   }}
                 >
                   <div className="spatial-3d-screen-wrapper">
-                    {tile}
+                    {clonedTile}
                   </div>
                 </Html>
               </group>

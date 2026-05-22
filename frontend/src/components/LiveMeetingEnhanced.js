@@ -114,6 +114,40 @@ const optimizeSDP = (sdp) => {
   return lines.join('\r\n');
 };
 
+// ─── Google Meet-style Grid Optimizer ──────────────────────────────────────────
+// Computes optimal (cols, rows) to maximize tile area for N participants
+// in a container of width × height, with a target aspect ratio of 16:9.
+const computeOptimalGrid = (n, containerWidth, containerHeight, aspectRatio = 16 / 9) => {
+  if (n <= 0) return { cols: 1, rows: 1, tileWidth: containerWidth, tileHeight: containerHeight };
+  
+  let bestCols = 1;
+  let bestTileArea = 0;
+  
+  for (let cols = 1; cols <= n; cols++) {
+    const rows = Math.ceil(n / cols);
+    // Tile width bounded by container width divided by columns
+    const tileW = containerWidth / cols;
+    // Tile height bounded by container height divided by rows AND by aspect ratio
+    const tileH = Math.min(containerHeight / rows, tileW / aspectRatio);
+    const tileArea = tileH * (tileH * aspectRatio); // actual area = tileH * tileW
+    if (tileArea > bestTileArea) {
+      bestTileArea = tileArea;
+      bestCols = cols;
+    }
+  }
+  
+  const bestRows = Math.ceil(n / bestCols);
+  const tileW = containerWidth / bestCols;
+  const tileH = Math.min(containerHeight / bestRows, tileW / aspectRatio);
+  
+  return {
+    cols: bestCols,
+    rows: bestRows,
+    tileWidth: Math.floor(tileW),
+    tileHeight: Math.floor(tileH),
+  };
+};
+
 // Camera-Off Placeholder shown when video is disabled
 const CameraOffPlaceholder = ({ name, isHost, size = 'normal', isHandRaised = false, isSpeaking = false }) => {
   return (
@@ -138,10 +172,18 @@ const EnhancedVideoTile = React.memo(({
   isVideoOn = true,
   isHandRaised = false,
   hasCamera = true,
-  isHost = false
+  isHost = false,
+  audioContext = null,
+  viewMode = 'gallery',
+  spatialPosition = null,
+  pan = 0
 }) => {
   const ref = useRef();
   const audioRef = useRef();
+  const pannerNodeRef = useRef(null);
+  const audioSourceRef = useRef(null);
+  const analyserRef = useRef(null);
+  
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -151,70 +193,179 @@ const EnhancedVideoTile = React.memo(({
   const updateAudioLevel = threeJS ? threeJS.updateAudioLevel : () => {};
   const setActiveSpeaker = threeJS ? threeJS.setActiveSpeaker : () => {};
 
+  // Integrated Spatial and Stereo Audio Engine with Analyser
   useEffect(() => {
-    if (!peer || !audioRef.current) return;
+    if (!audioContext || !audioRef.current) return;
 
-    let audioContext;
-    let source;
-    let analyser;
-    let animationFrameId;
+    let localAudioSource = null;
+    let localPannerNode = null;
+    let localAnalyser = null;
+    let animationFrameId = null;
 
-    const startAnalyser = () => {
+    const setupSpatialAudio = () => {
       try {
         const stream = audioRef.current.srcObject;
         if (!stream || stream.getAudioTracks().length === 0) return;
 
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        audioContext = new AudioCtx();
-        source = audioContext.createMediaStreamSource(stream);
-        analyser = audioContext.createAnalyser();
+        // Decouple native HTML audio: mute it to prevent duplicate mono playback,
+        // but keep the source flowing and alive in the browser DOM pipeline
+        audioRef.current.volume = 0;
+        audioRef.current.muted = true;
+
+        // Clean up previous nodes if they exist
+        if (audioSourceRef.current) {
+          try { audioSourceRef.current.disconnect(); } catch (e) {}
+        }
+        if (pannerNodeRef.current) {
+          try { pannerNodeRef.current.disconnect(); } catch (e) {}
+        }
+        if (analyserRef.current) {
+          try { analyserRef.current.disconnect(); } catch (e) {}
+        }
+
+        // Ensure central audio context is running (needed for browser autoplay)
+        if (audioContext.state === 'suspended') {
+          audioContext.resume().catch(e => console.warn('AudioContext resume failed:', e));
+        }
+
+        // 1. Create MediaStream Audio Source
+        const source = audioContext.createMediaStreamSource(stream);
+        audioSourceRef.current = source;
+        localAudioSource = source;
+
+        // 2. Create Analyser for real-time speaking volume tracking
+        const analyser = audioContext.createAnalyser();
         analyser.fftSize = 64;
         source.connect(analyser);
+        analyserRef.current = analyser;
+        localAnalyser = analyser;
 
+        // Start checking volume
         const bufferLength = analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
 
         const checkVolume = () => {
           if (!analyser) return;
-          analyser.getByteFrequencyData(dataArray);
+          try {
+            analyser.getByteFrequencyData(dataArray);
+            let total = 0;
+            for (let i = 0; i < bufferLength; i++) {
+              total += dataArray[i];
+            }
+            const average = total / bufferLength;
+            const normalizedLevel = average / 255.0;
 
-          let total = 0;
-          for (let i = 0; i < bufferLength; i++) {
-            total += dataArray[i];
-          }
-          const average = total / bufferLength;
-          const normalizedLevel = average / 255.0;
+            updateAudioLevel(userName, normalizedLevel);
 
-          // Notify context
-          updateAudioLevel(userName, normalizedLevel);
-
-          if (normalizedLevel > 0.08) {
-            setIsSpeaking(true);
-            setActiveSpeaker(userName);
-          } else {
-            setIsSpeaking(false);
+            if (normalizedLevel > 0.08) {
+              setIsSpeaking(true);
+              setActiveSpeaker(userName);
+            } else {
+              setIsSpeaking(false);
+            }
+          } catch (e) {
+            // Analyser node might be disconnected/cleanup
           }
 
           animationFrameId = requestAnimationFrame(checkVolume);
         };
-
         checkVolume();
+
+        // 3. Create and connect Spatial Panner Node
+        if (viewMode === 'spatial' && spatialPosition) {
+          // Native HRTF High-Fidelity 3D Panner
+          const panner = audioContext.createPanner();
+          panner.panningModel = 'HRTF';
+          panner.distanceModel = 'inverse';
+          panner.refDistance = 1.5;
+          panner.maxDistance = 20;
+          panner.rolloffFactor = 1.2;
+
+          const [x, y, z] = spatialPosition;
+          // Set head-level height coordinates
+          if (panner.positionX) {
+            panner.positionX.setValueAtTime(x, audioContext.currentTime);
+            panner.positionY.setValueAtTime(y + 0.25, audioContext.currentTime);
+            panner.positionZ.setValueAtTime(z, audioContext.currentTime);
+          } else {
+            panner.setPosition(x, y + 0.25, z);
+          }
+
+          analyser.connect(panner);
+          panner.connect(audioContext.destination);
+          pannerNodeRef.current = panner;
+          localPannerNode = panner;
+        } else {
+          // Stereo Panner Node for Gallery/Speaker view
+          if (audioContext.createStereoPanner) {
+            const panner = audioContext.createStereoPanner();
+            panner.pan.setValueAtTime(pan || 0, audioContext.currentTime);
+            
+            analyser.connect(panner);
+            panner.connect(audioContext.destination);
+            pannerNodeRef.current = panner;
+            localPannerNode = panner;
+          } else {
+            // Fallback for browsers without StereoPannerNode support
+            analyser.connect(audioContext.destination);
+          }
+        }
       } catch (err) {
-        console.warn('Audio analysis setup failed:', err);
+        console.warn('Failed to setup spatial audio engine for peer:', userName, err);
+        // Fallback: Restore HTML audio playback in case Web Audio fails
+        if (audioRef.current) {
+          audioRef.current.volume = 1;
+          audioRef.current.muted = false;
+        }
       }
     };
 
-    const timerId = setTimeout(startAnalyser, 1000);
+    // Delay setup slightly to ensure the browser has fully resolved WebRTC stream tracks
+    const timer = setTimeout(setupSpatialAudio, 1000);
 
     return () => {
-      clearTimeout(timerId);
+      clearTimeout(timer);
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
-      if (audioContext && audioContext.state !== 'closed') {
-        audioContext.close();
+      
+      if (localAudioSource) {
+        try { localAudioSource.disconnect(); } catch (e) {}
       }
+      if (localPannerNode) {
+        try { localPannerNode.disconnect(); } catch (e) {}
+      }
+      if (localAnalyser) {
+        try { localAnalyser.disconnect(); } catch (e) {}
+      }
+
+      audioSourceRef.current = null;
+      pannerNodeRef.current = null;
+      analyserRef.current = null;
       updateAudioLevel(userName, 0);
     };
-  }, [peer, userName, updateAudioLevel, setActiveSpeaker]);
+  }, [audioContext, viewMode, peer, userName, updateAudioLevel, setActiveSpeaker]);
+
+  // Handle dynamic coordinate and panning parameter updates smoothly
+  useEffect(() => {
+    const panner = pannerNodeRef.current;
+    if (!panner || !audioContext) return;
+
+    try {
+      if (viewMode === 'spatial' && spatialPosition) {
+        const [x, y, z] = spatialPosition;
+        if (panner.positionX) {
+          panner.positionX.setTargetAtTime(x, audioContext.currentTime, 0.1);
+          panner.positionY.setTargetAtTime(y + 0.25, audioContext.currentTime, 0.1);
+          panner.positionZ.setTargetAtTime(z, audioContext.currentTime, 0.1);
+        } else {
+          panner.setPosition(x, y + 0.25, z);
+        }
+      } else if (viewMode !== 'spatial' && panner.pan) {
+        panner.pan.setTargetAtTime(pan || 0, audioContext.currentTime, 0.1);
+      }
+    } catch (e) {
+      console.warn('Error dynamically updating panner parameters:', e);
+    }
+  }, [spatialPosition, pan, viewMode, audioContext]);
 
   useEffect(() => {
     if (peer) {
@@ -281,9 +432,10 @@ const EnhancedVideoTile = React.memo(({
       isScreenSharing && 'screen-sharing',
       isLoading && 'loading',
       hasError && 'error',
-      isHovered && 'hovered'
+      isHovered && 'hovered',
+      isSpeaking && 'speaking'
     ].filter(Boolean).join(' ');
-  }, [isSmall, isMain, isScreenSharing, isLoading, hasError, isHovered]);
+  }, [isSmall, isMain, isScreenSharing, isLoading, hasError, isHovered, isSpeaking]);
 
   return (
     <div 
@@ -292,6 +444,9 @@ const EnhancedVideoTile = React.memo(({
       onMouseLeave={() => setIsHovered(false)}
       onDoubleClick={onDoubleClick}
     >
+      {/* Speaking ring overlay */}
+      {isSpeaking && <div className="speaking-ring" />}
+
       {isLoading && (
         <div className="video-loading">
           <div className="loading-spinner"></div>
@@ -335,18 +490,17 @@ const EnhancedVideoTile = React.memo(({
         style={{ display: 'none' }} 
       />
       
-      <div className="video-overlay">
-        <div className="participant-info">
-          <span className="participant-name">
-            {userName}
-            {isHost && <FaCrown className="host-badge" />}
-            {!isAudioOn && <FaMicrophoneSlash className="status-muted" />}
-            {!isVideoOn && <FaVideoSlash className="status-video-off" />}
-            {isHandRaised && <FaHandPaper className="status-hand-raised" />}
-            {isScreenSharing && <FaDesktop className="screen-share-icon" />}
-          </span>
+      {/* Google Meet-style bottom name bar */}
+      <div className="gm-tile-bar">
+        <div className="gm-tile-name">
+          {isHost && <FaCrown className="gm-host-crown" />}
+          <span>{userName}</span>
         </div>
-        
+        <div className="gm-tile-icons">
+          {!isAudioOn && <FaMicrophoneSlash className="gm-icon muted" title="Muted" />}
+          {isHandRaised && <FaHandPaper className="gm-icon hand" title="Hand Raised" />}
+          {isScreenSharing && <FaDesktop className="gm-icon screen" title="Screen Sharing" />}
+        </div>
       </div>
 
       {isScreenSharing && (
@@ -359,6 +513,43 @@ const EnhancedVideoTile = React.memo(({
     </div>
   );
 });
+
+// ─── Google Meet-style Adaptive Video Grid ─────────────────────────────────────
+// Adapts tile count, size, and layout based on participant count + container size,
+// just like Google Meet's layout engine.
+const GoogleMeetGrid = ({ tiles }) => {
+  const containerRef = useRef(null);
+  const [gridStyle, setGridStyle] = useState({ gridTemplateColumns: '1fr', gridTemplateRows: '1fr' });
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const update = () => {
+      const { offsetWidth: w, offsetHeight: h } = container;
+      const n = tiles.length;
+      if (n === 0) return;
+      const { cols } = computeOptimalGrid(n, w, h);
+      setGridStyle({
+        gridTemplateColumns: `repeat(${cols}, 1fr)`,
+        gridAutoRows: '1fr',
+      });
+    };
+
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [tiles.length]);
+
+  return (
+    <div className="gm-grid-container" ref={containerRef}>
+      <div className="gm-grid" style={gridStyle}>
+        {tiles}
+      </div>
+    </div>
+  );
+};
 
 // Enhanced Connection Quality Indicator
 const ConnectionQualityIndicator = ({ quality = 'good' }) => {
@@ -2309,6 +2500,15 @@ const EnhancedLiveMeeting = ({
     if (socketRef.current) {
       socketRef.current.disconnect();
     }
+
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      try {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      } catch (error) {
+        console.warn('Error closing central AudioContext during cleanup:', error);
+      }
+    }
   }, [userStream, screenStream]);
 
   const endCall = useCallback(() => {
@@ -2849,20 +3049,28 @@ const EnhancedLiveMeeting = ({
               
               {activePeers.length > 0 && (
                 <div className="participants-strip">
-                  {activePeers.map((peer, index) => (
-                    <EnhancedVideoTile 
-                      key={peer.socketId || index} 
-                      peer={peer.peer} 
-                      userName={peer.userName}
-                      isSmall={true}
-                      isAudioOn={peer.isAudioOn}
-                      isVideoOn={peer.isVideoOn}
-                      isHandRaised={peer.isHandRaised}
-                      isScreenSharing={peer.isScreenSharing}
-                      hasCamera={peer.hasCamera !== false}
-                      isHost={peer.isHost}
-                    />
-                  ))}
+                  {activePeers.map((peer, index) => {
+                    const panVal = activePeers.length > 1 
+                      ? ((index / (activePeers.length - 1)) * 1.0 - 0.5) 
+                      : 0.0;
+                    return (
+                      <EnhancedVideoTile 
+                        key={peer.socketId || index} 
+                        peer={peer.peer} 
+                        userName={peer.userName}
+                        isSmall={true}
+                        isAudioOn={peer.isAudioOn}
+                        isVideoOn={peer.isVideoOn}
+                        isHandRaised={peer.isHandRaised}
+                        isScreenSharing={peer.isScreenSharing}
+                        hasCamera={peer.hasCamera !== false}
+                        isHost={peer.isHost}
+                        audioContext={audioContextRef.current}
+                        viewMode={viewMode}
+                        pan={panVal}
+                      />
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -2946,95 +3154,62 @@ const EnhancedLiveMeeting = ({
                   isScreenSharing={peer.isScreenSharing}
                   hasCamera={peer.hasCamera !== false}
                   isHost={peer.isHost}
+                  audioContext={audioContextRef.current}
+                  viewMode={viewMode}
                 />
               ))}
             </SpatialMeetingRoom>
           ) : (
-            <div className="gallery-layout">
-              <div className="video-grid">
-                {isScreenSharing ? (
-                  // Show both camera and screen share in gallery when screen sharing
-                  <>
-                    <div className="video-tile screen-share-tile">
-                      <video 
-                        ref={screenShareVideo} 
-                        autoPlay 
-                        playsInline 
-                        muted 
-                        className="participant-video screen-share-video"
-                      />
-                      <div className="video-overlay">
-                        <div className="participant-name">
-                          {userName} (You) - Screen Share
-                          {isHost && <FaCrown className="host-badge" />}
-                          {!isAudioOn && <FaMicrophoneSlash className="muted-icon" />}
-                          {isHandRaised && <FaHandPaper className="hand-raised-icon" />}
-                          <FaDesktop className="screen-share-icon" />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="video-tile camera-tile">
-                      {!isVideoOn ? (
-                        <CameraOffPlaceholder name={userName} isHost={isHost} size="normal" />
-                      ) : (
-                        <video 
-                          ref={userVideo} 
-                          autoPlay 
-                          playsInline 
-                          muted 
-                          className="participant-video camera-video"
-                        />
-                      )}
-                      <div className="video-overlay">
-                        <div className="participant-name">
-                          {userName} (You) - Camera
-                          {isHost && <FaCrown className="host-badge" />}
-                          {!isAudioOn && <FaMicrophoneSlash className="muted-icon" />}
-                          {isHandRaised && <FaHandPaper className="hand-raised-icon" />}
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  // Normal camera view when not screen sharing
-                  <div className="video-tile">
+            /* ── Google Meet-style Gallery View ─────────────────────────── */
+            <div className="gallery-layout gm-layout">
+              <GoogleMeetGrid
+                tiles={[
+                  /* Local self-view tile */
+                  <div key="self" className="video-tile gm-tile gm-self-tile">
+                    {localSpeaking && <div className="speaking-ring" />}
                     {!isVideoOn ? (
-                      <CameraOffPlaceholder name={userName} isHost={isHost} size="normal" />
+                      <CameraOffPlaceholder name={userName} isHost={isHost} size="normal" isHandRaised={isHandRaised} isSpeaking={localSpeaking} />
+                    ) : isScreenSharing ? (
+                      <video ref={screenShareVideo} autoPlay playsInline muted className="participant-video screen-share-video" />
                     ) : (
-                      <video 
-                        ref={userVideo} 
-                        autoPlay 
-                        playsInline 
-                        muted 
-                        className="participant-video"
-                      />
+                      <video ref={userVideo} autoPlay playsInline muted className="participant-video" />
                     )}
-                    <div className="video-overlay">
-                      <div className="participant-name">
-                        {userName} (You) - Camera
-                        {isHost && <FaCrown className="host-badge" />}
-                        {!isAudioOn && <FaMicrophoneSlash className="muted-icon" />}
-                        {isHandRaised && <FaHandPaper className="hand-raised-icon" />}
+                    <div className="gm-tile-bar">
+                      <div className="gm-tile-name">
+                        {isHost && <FaCrown className="gm-host-crown" />}
+                        <span>{userName} (You)</span>
+                      </div>
+                      <div className="gm-tile-icons">
+                        {!isAudioOn && <FaMicrophoneSlash className="gm-icon muted" title="Muted" />}
+                        {isHandRaised && <FaHandPaper className="gm-icon hand" title="Hand Raised" />}
+                        {isScreenSharing && <FaDesktop className="gm-icon screen" title="Sharing Screen" />}
                       </div>
                     </div>
-                  </div>
-                )}
-                
-                {activePeers.map((peer, index) => (
-                  <EnhancedVideoTile 
-                    key={peer.socketId || index} 
-                    peer={peer.peer} 
-                    userName={peer.userName}
-                    isAudioOn={peer.isAudioOn}
-                    isVideoOn={peer.isVideoOn}
-                    isHandRaised={peer.isHandRaised}
-                    isScreenSharing={peer.isScreenSharing}
-                    hasCamera={peer.hasCamera !== false}
-                    isHost={peer.isHost}
-                  />
-                ))}
-              </div>
+                  </div>,
+                  /* Remote peers */
+                  ...activePeers.map((peer, index) => {
+                    const panVal = activePeers.length > 1 
+                      ? ((index / (activePeers.length - 1)) * 1.2 - 0.6) 
+                      : 0.0;
+                    return (
+                      <EnhancedVideoTile
+                        key={peer.socketId || index}
+                        peer={peer.peer}
+                        userName={peer.userName}
+                        isAudioOn={peer.isAudioOn}
+                        isVideoOn={peer.isVideoOn}
+                        isHandRaised={peer.isHandRaised}
+                        isScreenSharing={peer.isScreenSharing}
+                        hasCamera={peer.hasCamera !== false}
+                        isHost={peer.isHost}
+                        audioContext={audioContextRef.current}
+                        viewMode={viewMode}
+                        pan={panVal}
+                      />
+                    );
+                  })
+                ]}
+              />
             </div>
           )}
         </div>
