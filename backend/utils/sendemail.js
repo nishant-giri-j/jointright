@@ -1,6 +1,35 @@
 import nodemailer from "nodemailer";
+import fetch from "node-fetch";
 
 export const sendEmail = async (to, subject, content, isHtml = true) => {
+  // ─── DUAL MODE: RESEND HTTP API (FOR RENDER FREE TIER) ────────────────────────
+  if (process.env.RESEND_API_KEY) {
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+    
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: `JointRight <${fromEmail}>`,
+        to: [to],
+        subject: subject,
+        html: isHtml ? content : undefined,
+        text: isHtml ? content.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() : content
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Resend API failed: ${errorData.message || response.statusText}`);
+    }
+    
+    return;
+  }
+
+  // ─── DUAL MODE: STANDARD SMTP (FOR LOCALHOST DEVELOPMENT) ────────────────────
   const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 587,
