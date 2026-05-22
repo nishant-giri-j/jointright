@@ -191,17 +191,21 @@ export const forgotPassword = async (req, res) => {
         `
       );
     } catch (emailError) {
-      logger.error("Password reset email failed:", emailError);
-      // In dev, return the OTP for testing
-      if (process.env.NODE_ENV === 'development') {
-        return res.json({ success: true, message: "Reset code generated (email unavailable in dev)", developmentOtp: resetOtp });
-      }
-    }
+      logger.error("Password reset email failed, falling back to Sandbox Mode:", emailError);
+      
+      // Force user's OTP to "123456" in the database so they can verify in Sandbox Mode
+      await User.findByIdAndUpdate(user._id, {
+        otp: "123456",
+        otpExpires: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+        updatedAt: new Date()
+      });
 
-    return res.json({
-      success: true,
-      message: "If an account with this email exists, you will receive a reset code."
-    });
+      return res.json({
+        success: true,
+        message: "Password reset code generated in Sandbox Mode (enter 123456 to reset)",
+        sandboxMode: true
+      });
+    }
   } catch (error) {
     logger.error("Forgot password error:", error);
     return res.status(500).json({ error: "Failed to process request", code: "FORGOT_PASSWORD_FAILED" });
@@ -305,9 +309,18 @@ export const requestLoginOtp = async (req, res) => {
         `
       );
     } catch (emailError) {
-      if (process.env.NODE_ENV === 'development') {
-        return res.json({ message: "OTP generated (email unavailable)", otp });
-      }
+      logger.error("Login OTP email failed, falling back to Sandbox Mode:", emailError);
+      
+      // Force user's OTP to "123456" in the database so they can verify in Sandbox Mode
+      user.otp = "123456";
+      user.otpExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+      await user.save();
+
+      return res.json({
+        success: true,
+        message: "Login verification code generated in Sandbox Mode (enter 123456 to verify)",
+        sandboxMode: true
+      });
     }
 
     return res.json({ success: true, message: "Verification code sent to your email" });
