@@ -1,793 +1,578 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from "../contexts/AuthContext";
+import api from "../services/api";
 
+/* ─── Shared CSS injected once ─────────────────────────────────── */
+const AUTH_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  @keyframes spin   { to { transform: rotate(360deg); } }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes floatBall {
+    0%,100% { transform: translateY(0) rotate(0deg); }
+    50%      { transform: translateY(-20px) rotate(180deg); }
+  }
+  @keyframes gradientBG {
+    0%   { background-position: 0%   50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0%   50%; }
+  }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20%,60% { transform: translateX(-6px); }
+    40%,80% { transform: translateX(6px); }
+  }
+
+  .auth-bg {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    font-family: 'Inter', system-ui, sans-serif;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #667eea, #764ba2, #f97316, #667eea);
+    background-size: 400% 400%;
+    animation: gradientBG 12s ease infinite;
+  }
+
+  .auth-ball {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.12;
+    animation: floatBall 7s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .auth-card {
+    background: rgba(255,255,255,0.97);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 24px;
+    padding: 48px 44px;
+    width: 100%;
+    max-width: 460px;
+    box-shadow: 0 32px 64px rgba(0,0,0,0.18), 0 0 0 1px rgba(255,255,255,0.15);
+    animation: fadeUp 0.5s ease-out;
+    position: relative;
+    z-index: 10;
+  }
+
+  .auth-input {
+    width: 100%;
+    padding: 14px 48px 14px 18px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-family: inherit;
+    background: #fafbfc;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    outline: none;
+    color: #1e293b;
+  }
+  .auth-input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+    transform: translateY(-1px);
+    background: #fff;
+  }
+  .auth-input.error-border { border-color: #ef4444; }
+  .auth-input.success-border { border-color: #10b981; }
+
+  .auth-btn {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    letter-spacing: 0.02em;
+  }
+  .auth-btn:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+  .auth-btn:not(:disabled):active { transform: translateY(0); }
+  .auth-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+
+  .auth-btn-primary { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; box-shadow: 0 4px 14px rgba(99,102,241,0.4); }
+  .auth-btn-primary:not(:disabled):hover { background: linear-gradient(135deg, #4f46e5, #3730a3); }
+
+  .auth-btn-ghost { background: transparent; color: #6366f1; font-weight: 500; padding: 6px; width: auto; }
+
+  .error-alert { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 12px; padding: 14px 16px; display: flex; align-items: flex-start; gap: 10px; animation: shake 0.35s ease; }
+  .success-alert { background: #f0fdf4; border: 1px solid #86efac; border-radius: 12px; padding: 14px 16px; display: flex; align-items: flex-start; gap: 10px; }
+
+  .eye-btn { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1.1rem; color: #94a3b8; padding: 4px; line-height: 1; }
+  .eye-btn:hover { color: #6366f1; }
+
+  .input-wrapper { position: relative; }
+
+  .divider { display: flex; align-items: center; gap: 12px; margin: 24px 0; color: #94a3b8; font-size: 0.875rem; }
+  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #e5e7eb; }
+
+  .auth-link { color: #6366f1; font-weight: 600; cursor: pointer; background: none; border: none; font-family: inherit; font-size: inherit; padding: 0; }
+  .auth-link:hover { color: #4f46e5; text-decoration: underline; }
+
+  .feature-row { display: flex; gap: 12px; margin-top: 28px; padding-top: 24px; border-top: 1px solid #f1f5f9; }
+  .feature-item { flex: 1; text-align: center; padding: 12px 8px; border-radius: 10px; background: #f8fafc; font-size: 0.78rem; color: #64748b; font-weight: 500; }
+  .feature-item .fi { font-size: 1.3rem; display: block; margin-bottom: 4px; }
+
+  .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+  .badge-blue { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+  .badge-amber { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+
+  .otp-digits { display: flex; gap: 8px; justify-content: center; }
+  .otp-digits input { width: 48px; height: 56px; text-align: center; font-size: 1.5rem; font-weight: 700; border: 2px solid #e2e8f0; border-radius: 10px; outline: none; font-family: inherit; background: #fafbfc; transition: border-color 0.2s; }
+  .otp-digits input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); background: #fff; }
+`;
+
+/* ─── View enum ─────────────────────────────────────────────────── */
+const VIEW = { LOGIN: "login", FORGOT: "forgot", RESET: "reset" };
+
+/* ─── Main Component ─────────────────────────────────────────────── */
 const LoginPage = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { login, clearError } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
+  const navigate    = useNavigate();
+  const location    = useLocation();
+  const { login }   = useAuth();
+
+  const [view,         setView]        = useState(VIEW.LOGIN);
+  const [email,        setEmail]       = useState("");
+  const [password,     setPassword]    = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe,   setRememberMe]  = useState(false);
+  const [isLoading,    setIsLoading]   = useState(false);
+  const [error,        setError]       = useState("");
+  const [success,      setSuccess]     = useState("");
   const [loginContext, setLoginContext] = useState(null);
 
-  // Force light theme on login page (run only once)
-  useEffect(() => {
-    // Add a class to body to override global theme
-    document.body.classList.add('login-page-override');
-    document.documentElement.classList.add('login-page-override');
-    
-    // Store original theme and force light theme
-    const originalTheme = localStorage.getItem('theme');
-    const originalDarkMode = localStorage.getItem('darkMode');
-    
-    // Set light theme without triggering re-renders
-    localStorage.setItem('theme', 'light');
-    localStorage.setItem('darkMode', 'false');
-    document.documentElement.setAttribute('data-theme', 'light');
-    document.documentElement.classList.remove('dark-mode');
-    document.body.classList.remove('dark-mode');
-    
-    // Cleanup: restore original theme and remove classes when leaving
-    return () => {
-      document.body.classList.remove('login-page-override');
-      document.documentElement.classList.remove('login-page-override');
-      
-      // Restore original theme settings
-      if (originalTheme) {
-        localStorage.setItem('theme', originalTheme);
-      }
-      if (originalDarkMode) {
-        localStorage.setItem('darkMode', originalDarkMode);
-      }
-      
-      // Reapply theme based on stored preference
-      if (originalTheme === 'dark' || originalDarkMode === 'true') {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        document.documentElement.classList.add('dark-mode');
-        document.body.classList.add('dark-mode');
-      }
-    };
-  }, []); // Empty dependency array to run only once
+  // Forgot / Reset state
+  const [forgotEmail,    setForgotEmail]    = useState("");
+  const [resetOtp,       setResetOtp]       = useState("");
+  const [newPassword,    setNewPassword]    = useState("");
+  const [confirmPassword,setConfirmPassword] = useState("");
+  const [showNewPass,    setShowNewPass]    = useState(false);
 
+  // Detect meeting/contact login context
   useEffect(() => {
-    // Check if this is a context-specific login (meeting or contact)
-    const urlParams = new URLSearchParams(location.search);
-    const returnUrl = urlParams.get('returnUrl');
-    const type = urlParams.get('type');
-    
-    if (type === 'meeting') {
-      // Get pending meeting data from sessionStorage
-      const pendingMeeting = sessionStorage.getItem('pendingMeeting');
-      if (pendingMeeting) {
-        const meetingData = JSON.parse(pendingMeeting);
-        setLoginContext({
-          type: 'meeting',
-          returnUrl: returnUrl ? decodeURIComponent(returnUrl) : null,
-          meetingData: meetingData
-        });
-        console.log('🎬 Meeting login context detected:', meetingData);
-      }
-    } else if (type === 'contact') {
-      // Get pending contact form data from sessionStorage
-      const pendingContactForm = sessionStorage.getItem('pendingContactForm');
+    const params = new URLSearchParams(location.search);
+    const returnUrl = params.get("returnUrl");
+    const type      = params.get("type");
+    if (type === "meeting") {
+      const pendingMeeting = sessionStorage.getItem("pendingMeeting");
       setLoginContext({
-        type: 'contact',
+        type: "meeting",
         returnUrl: returnUrl ? decodeURIComponent(returnUrl) : null,
-        contactFormData: pendingContactForm ? JSON.parse(pendingContactForm) : null
+        meetingData: pendingMeeting ? JSON.parse(pendingMeeting) : null,
       });
-      console.log('📧 Contact login context detected');
+    } else if (type === "contact") {
+      setLoginContext({ type: "contact", returnUrl: returnUrl ? decodeURIComponent(returnUrl) : null });
     }
   }, [location.search]);
 
+  const clearMessages = useCallback(() => { setError(""); setSuccess(""); }, []);
+
+  /* ── LOGIN ──────────────────────────────────────────── */
   const handleLogin = async (e) => {
     e.preventDefault();
+    clearMessages();
     setIsLoading(true);
-    setError("");
-    clearError();
-    
-    console.log('🔐 Login attempt started');
-    console.log('Email:', email);
-    console.log('Password length:', password.length);
-    console.log('Remember me:', rememberMe);
-    
+
     try {
-      const credentials = {
-        email,
-        password,
-        rememberMe
-      };
-      
-      console.log('Calling login with credentials:', { ...credentials, password: '[REDACTED]' });
-      const loginResult = await login(credentials);
-      
-      // Post-login navigation
-      console.log('✅ Login successful, user role:', loginResult?.user?.role);
+      const result = await login({ email, password, rememberMe });
 
-      // Handle context-specific redirects
-      if (loginContext?.type === 'meeting') {
-        const target = loginContext.returnUrl || '/join';
-        console.log('🔁 Redirecting back to meeting flow:', target);
-        navigate(target, { replace: true });
+      if (loginContext?.type === "meeting") {
+        navigate(loginContext.returnUrl || "/join", { replace: true });
         return;
       }
-      
-      if (loginContext?.type === 'contact') {
-        const target = loginContext.returnUrl || '/contact';
-        console.log('🔁 Redirecting back to contact form:', target);
-        navigate(target, { replace: true });
+      if (loginContext?.type === "contact") {
+        navigate(loginContext.returnUrl || "/contact", { replace: true });
         return;
       }
 
-      // Default: redirect to dashboard
-      console.log('Redirecting to dashboard');
-      navigate("/dashboard");
-    } catch (error) {
-      console.error("❌ Login error:", error);
-      console.error('Error details:', {
-        message: error.message,
-        code: error.code,
-        status: error.status,
-        details: error.details
-      });
-      
-      // Handle specific error cases
-      switch (error.code) {
-        case 'EMAIL_NOT_VERIFIED':
-          setError('Please verify your email address before logging in.');
-          break;
-        case 'ACCOUNT_LOCKED':
-        case 'ACCOUNT_LOCKED_ATTEMPTS':
-          setError(error.message);
-          break;
-        case 'INVALID_CREDENTIALS':
-          const remainingText = error.remainingAttempts 
-            ? ` (${error.remainingAttempts} attempts remaining)` 
-            : '';
-          setError(`Invalid email or password${remainingText}`);
-          break;
-        case 'LOGIN_FAILED':
-        default:
-          // Check if this might be a "user doesn't exist" scenario
-          if (error.message && error.message.includes('Invalid email or password')) {
-            setError('Invalid email or password. If you don\'t have an account, please sign up first.');
-          } else {
-            setError(error.message || "Login failed. Please try again.");
-          }
+      // Role-based redirect
+      if (result?.user?.role === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/dashboard");
+      }
+    } catch (err) {
+      const code    = err.code || "";
+      const msg     = err.message || "";
+      const remaining = err.remainingAttempts;
+
+      if (code === "USER_NOT_FOUND") {
+        setError("No account found with this email. Please sign up first.");
+      } else if (code === "ACCOUNT_LOCKED" || code === "ACCOUNT_LOCKED_ATTEMPTS") {
+        setError(msg || "Account is temporarily locked. Try again later.");
+      } else if (code === "ACCOUNT_DEACTIVATED") {
+        setError("Your account has been deactivated. Contact support.");
+      } else if (code === "INVALID_PASSWORD") {
+        setError(remaining != null
+          ? `Incorrect password. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining before lockout.`
+          : "Incorrect password. Please try again.");
+      } else if (code === "NETWORK_ERROR" || msg.toLowerCase().includes("network")) {
+        setError("Cannot reach the server. Please check your connection.");
+      } else {
+        setError(msg || "Login failed. Please try again.");
       }
     } finally {
       setIsLoading(false);
     }
   };
 
+  /* ── FORGOT PASSWORD ────────────────────────────────── */
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    clearMessages();
+    setIsLoading(true);
+
+    try {
+      const resp = await api.post("/login/forgot-password", { email: forgotEmail });
+      if (resp.data?.developmentOtp) {
+        setSuccess(`[DEV] Reset code: ${resp.data.developmentOtp}`);
+      } else {
+        setSuccess("If this email is registered, you'll receive a reset code shortly.");
+      }
+      // Move to reset view regardless (security — don't reveal if email exists)
+      setTimeout(() => {
+        setResetOtp("");
+        setView(VIEW.RESET);
+        setError("");
+        setSuccess("");
+      }, 1500);
+    } catch {
+      setError("Failed to send reset code. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /* ── RESET PASSWORD ─────────────────────────────────── */
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    clearMessages();
+
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    setIsLoading(true);
+
+    try {
+      await api.post("/login/reset-password", {
+        email:           forgotEmail,
+        otp:             resetOtp,
+        newPassword,
+        confirmPassword,
+      });
+      setSuccess("Password reset successfully! Redirecting to login…");
+      setTimeout(() => {
+        setView(VIEW.LOGIN);
+        setEmail(forgotEmail);
+        setForgotEmail("");
+        setNewPassword("");
+        setConfirmPassword("");
+        setResetOtp("");
+        setSuccess("");
+      }, 2000);
+    } catch (err) {
+      const code = err.response?.data?.code;
+      if (code === "INVALID_OTP")    setError("Invalid reset code. Please check and try again.");
+      else if (code === "EXPIRED_OTP") setError("Reset code has expired. Please request a new one.");
+      else setError(err.response?.data?.error || "Failed to reset password.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /* ── RENDER ─────────────────────────────────────────── */
   return (
     <>
-      <style>
-        {`
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-          
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-          
-          @keyframes fadeInUp {
-            0% {
-              opacity: 0;
-              transform: translateY(30px);
-            }
-            100% {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-          
-          @keyframes pulse {
-            0%, 100% {
-              transform: scale(1);
-            }
-            50% {
-              transform: scale(1.05);
-            }
-          }
-          
-          @keyframes gradient {
-            0% {
-              background-position: 0% 50%;
-            }
-            50% {
-              background-position: 100% 50%;
-            }
-            100% {
-              background-position: 0% 50%;
-            }
-          }
-          
-          .login-container {
-            animation: gradient 15s ease infinite;
-            background-size: 400% 400%;
-          }
-          
-          .login-card {
-            animation: fadeInUp 0.6s ease-out;
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-          }
-          
-          .input-focus {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          }
-          
-          .input-focus:focus {
-            border-color: #3b82f6 !important;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
-            transform: translateY(-1px);
-          }
-          
-          .input-focus:hover {
-            border-color: #6b7280;
-          }
-          
-          .divider::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, #e5e7eb, transparent);
-          }
-          
-          .forgot-password {
-            transition: all 0.2s ease;
-          }
-          
-          .forgot-password:hover {
-            text-decoration: underline;
-            color: #1d4ed8 !important;
-          }
-          
-          .signup-link {
-            transition: all 0.2s ease;
-          }
-          
-          .signup-link:hover {
-            text-decoration: underline;
-            color: #1d4ed8 !important;
-          }
-          
-          .button-hover {
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          }
-          
-          .button-hover::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: left 0.5s;
-          }
-          
-          .button-hover:hover:not(:disabled) {
-            background: #1d4ed8 !important;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(29, 78, 216, 0.4);
-          }
-          
-          .button-hover:hover::before {
-            left: 100%;
-          }
-          
-          .logo-bounce:hover {
-            animation: pulse 0.6s ease-in-out;
-          }
-          
-          .feature-card {
-            transition: all 0.3s ease;
-          }
-          
-          .feature-card:hover {
-            transform: translateY(-2px);
-            color: #3b82f6 !important;
-          }
-          
-          .floating-shapes {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            pointer-events: none;
-          }
-          
-          .shape {
-            position: absolute;
-            opacity: 0.1;
-            animation: float 6s ease-in-out infinite;
-          }
-          
-          .shape:nth-child(1) {
-            top: 20%;
-            left: 10%;
-            animation-delay: 0s;
-          }
-          
-          .shape:nth-child(2) {
-            top: 60%;
-            left: 80%;
-            animation-delay: 2s;
-          }
-          
-          .shape:nth-child(3) {
-            top: 80%;
-            left: 20%;
-            animation-delay: 4s;
-          }
-          
-          @keyframes float {
-            0%, 100% {
-              transform: translateY(0px) rotate(0deg);
-            }
-            50% {
-              transform: translateY(-20px) rotate(180deg);
-            }
-          }
-          
-          .glass-effect {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-          }
-        `}
-      </style>
-      
-    <div className="login-container" style={styles.container}>
-      <div className="floating-shapes">
-        <div className="shape" style={{width: '60px', height: '60px', background: 'linear-gradient(45deg, #3b82f6, #8b5cf6)', borderRadius: '50%'}}></div>
-        <div className="shape" style={{width: '40px', height: '40px', background: 'linear-gradient(45deg, #06b6d4, #3b5cf6)', borderRadius: '50%'}}></div>
-        <div className="shape" style={{width: '80px', height: '80px', background: 'linear-gradient(45deg, #8b5cf6, #ec4899)', borderRadius: '50%'}}></div>
-      </div>
-      
-      <div className="login-card glass-effect" style={styles.card}>
-        <div style={styles.header}>
-          <div className="logo-bounce" style={styles.logoContainer}>
-            <div style={styles.logoIcon}>🤝</div>
-            <h1 style={styles.title}>JointRight</h1>
-          </div>
-          {loginContext?.type === 'meeting' ? (
-            <>
-              <p style={styles.subtitle}>Please sign in to join the meeting.</p>
-              <div style={styles.meetingBadge}>
-                <span style={styles.meetingBadgeText}>🎥 Meeting Access Required</span>
-              </div>
-              {loginContext.meetingData?.title && (
-                <div style={styles.meetingInfo}>
-                  <p style={styles.meetingTitle}>📅 {loginContext.meetingData.title}</p>
-                  {loginContext.meetingData.host && (
-                    <p style={styles.meetingHost}>👤 Hosted by {loginContext.meetingData.host}</p>
-                  )}
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <p style={styles.subtitle}>Welcome back! Please sign in to continue your journey.</p>
-              <div style={styles.welcomeBadge}>
-                <span style={styles.badgeText}>✨ Secure Login</span>
-              </div>
-            </>
-          )}
-        </div>
+      <style>{AUTH_STYLES}</style>
 
-        {error && (
-          <div style={styles.errorContainer}>
-            <span style={styles.errorIcon}>⚠️</span>
-            <span style={styles.errorText}>{error}</span>
-          </div>
-        )}
+      <div className="auth-bg">
+        {/* Floating decorative balls */}
+        <div className="auth-ball" style={{ width: 80,  height: 80,  background: "linear-gradient(135deg,#6366f1,#8b5cf6)", top: "15%", left: "8%",  animationDelay: "0s" }} />
+        <div className="auth-ball" style={{ width: 50,  height: 50,  background: "linear-gradient(135deg,#f97316,#ef4444)", top: "65%", right: "10%", animationDelay: "2s" }} />
+        <div className="auth-ball" style={{ width: 100, height: 100, background: "linear-gradient(135deg,#06b6d4,#6366f1)", bottom: "15%", left: "15%", animationDelay: "4s" }} />
 
-        <form onSubmit={handleLogin}>
-          <div style={styles.inputContainer}>
-            <label style={styles.label}>Email Address</label>
-            <input
-              className="input-focus"
-              style={{
-                ...styles.input,
-                borderColor: error ? "#ef4444" : "#d1d5db"
-              }}
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={isLoading}
-              required
-            />
-          </div>
-          
-          <div style={styles.inputContainer}>
-            <label style={styles.label}>Password</label>
-            <input
-              className="input-focus"
-              style={{
-                ...styles.input,
-                borderColor: error ? "#ef4444" : "#d1d5db"
-              }}
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={isLoading}
-              required
-            />
-          </div>
-          
-          <div style={styles.optionsContainer}>
-            <label style={styles.checkboxContainer}>
-              <input
-                type="checkbox"
-                style={styles.checkbox}
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                disabled={isLoading}
-              />
-              <span style={styles.checkboxLabel}>Remember me</span>
-            </label>
-            
-            <span 
-              className="forgot-password"
-              style={styles.forgotPassword}
-              onClick={() => navigate("/forgot-password")}
-            >
-              Forgot your password?
-            </span>
-          </div>
-          
-          <button 
-            className="button-hover"
-            style={{
-              ...styles.button,
-              backgroundColor: isLoading ? "#9ca3af" : "#2563eb",
-              cursor: isLoading ? "not-allowed" : "pointer"
-            }}
-            type="submit"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <div style={styles.loadingContainer}>
-                <div style={styles.spinner}></div>
-                <span>Signing in...</span>
-              </div>
-            ) : (
-              <div style={styles.buttonContent}>
-                <span>🔐</span>
-                <span>Sign In</span>
+        <div className="auth-card">
+          {/* ── Logo ── */}
+          <div style={{ textAlign: "center", marginBottom: 32 }}>
+            <div style={{ fontSize: "2.8rem", marginBottom: 8 }}>🤝</div>
+            <h1 style={{ margin: 0, fontSize: "1.9rem", fontWeight: 700, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              JointRight
+            </h1>
+            <p style={{ color: "#64748b", margin: "8px 0 0", fontSize: "0.95rem" }}>
+              {view === VIEW.LOGIN  && (loginContext?.type === "meeting" ? "Sign in to join the meeting" : "Welcome back! Sign in to continue.")}
+              {view === VIEW.FORGOT && "Enter your email to receive a reset code"}
+              {view === VIEW.RESET  && "Enter the code sent to your email"}
+            </p>
+
+            {/* Context badge */}
+            {view === VIEW.LOGIN && loginContext?.type === "meeting" && (
+              <div style={{ marginTop: 12 }}>
+                <span className="badge badge-amber">🎥 Meeting Access Required</span>
               </div>
             )}
-          </button>
-        </form>
-
-        <div className="divider" style={styles.divider}>
-          <span style={styles.dividerText}>or</span>
-        </div>
-
-        <div style={styles.signupContainer}>
-          <span style={styles.signupText}>Don't have an account? </span>
-          <span
-            className="signup-link"
-            style={styles.signupLink}
-            onClick={() => navigate("/signup")}
-          >
-            Sign up here
-          </span>
-        </div>
-
-        <div style={styles.features}>
-          <div className="feature-card" style={styles.feature}>
-            <div style={styles.featureIcon}>🎯</div>
-            <span style={styles.featureText}>Seamless Meetings</span>
-            <div style={styles.featureBadge}>Pro</div>
+            {view === VIEW.LOGIN && !loginContext && (
+              <div style={{ marginTop: 12 }}>
+                <span className="badge badge-blue">✨ Secure Login</span>
+              </div>
+            )}
           </div>
-          <div className="feature-card" style={styles.feature}>
-            <div style={styles.featureIcon}>🔒</div>
-            <span style={styles.featureText}>Secure & Private</span>
-            <div style={styles.featureBadge}>Safe</div>
-          </div>
-          <div className="feature-card" style={styles.feature}>
-            <div style={styles.featureIcon}>⚡</div>
-            <span style={styles.featureText}>Lightning Fast</span>
-            <div style={styles.featureBadge}>Fast</div>
-          </div>
+
+          {/* ── Alerts ── */}
+          {error && (
+            <div className="error-alert" style={{ marginBottom: 20 }}>
+              <span>⚠️</span>
+              <span style={{ color: "#dc2626", fontSize: "0.9rem", fontWeight: 500, lineHeight: 1.4 }}>{error}</span>
+            </div>
+          )}
+          {success && (
+            <div className="success-alert" style={{ marginBottom: 20 }}>
+              <span>✅</span>
+              <span style={{ color: "#059669", fontSize: "0.9rem", fontWeight: 500 }}>{success}</span>
+            </div>
+          )}
+
+          {/* ════════════════════ LOGIN FORM ════════════════════ */}
+          {view === VIEW.LOGIN && (
+            <form onSubmit={handleLogin} noValidate>
+              {/* Email */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={labelStyle}>Email Address</label>
+                <div className="input-wrapper">
+                  <input
+                    id="login-email"
+                    className={`auth-input${error ? " error-border" : ""}`}
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={e => { setEmail(e.target.value); clearMessages(); }}
+                    disabled={isLoading}
+                    autoComplete="email"
+                    required
+                    style={{ paddingRight: 18 }}
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div style={{ marginBottom: 8 }}>
+                <label style={labelStyle}>Password</label>
+                <div className="input-wrapper">
+                  <input
+                    id="login-password"
+                    className={`auth-input${error ? " error-border" : ""}`}
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={e => { setPassword(e.target.value); clearMessages(); }}
+                    disabled={isLoading}
+                    autoComplete="current-password"
+                    required
+                  />
+                  <button type="button" className="eye-btn" onClick={() => setShowPassword(p => !p)} tabIndex={-1}>
+                    {showPassword ? "🙈" : "👁️"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Options row */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: "0.9rem", color: "#374151", fontWeight: 500 }}>
+                  <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} style={{ width: 16, height: 16, accentColor: "#6366f1" }} />
+                  Remember me
+                </label>
+                <button
+                  type="button"
+                  className="auth-link"
+                  style={{ fontSize: "0.9rem" }}
+                  onClick={() => { setView(VIEW.FORGOT); setForgotEmail(email); clearMessages(); }}
+                >
+                  Forgot password?
+                </button>
+              </div>
+
+              <button className="auth-btn auth-btn-primary" type="submit" disabled={isLoading || !email || !password}>
+                {isLoading ? <><Spinner />Signing in…</> : <>🔐 Sign In</>}
+              </button>
+
+              <div className="divider">or</div>
+
+              <div style={{ textAlign: "center", color: "#64748b", fontSize: "0.95rem" }}>
+                Don't have an account?{" "}
+                <button type="button" className="auth-link" onClick={() => navigate("/signup")}>
+                  Sign up free
+                </button>
+              </div>
+
+              <div className="feature-row">
+                {[["🎯","Meetings"],["🔒","Secure"],["⚡","Fast"]].map(([icon,label]) => (
+                  <div key={label} className="feature-item"><span className="fi">{icon}</span>{label}</div>
+                ))}
+              </div>
+            </form>
+          )}
+
+          {/* ════════════════════ FORGOT PASSWORD FORM ════════════════════ */}
+          {view === VIEW.FORGOT && (
+            <form onSubmit={handleForgotPassword} noValidate>
+              <div style={{ marginBottom: 20 }}>
+                <label style={labelStyle}>Email Address</label>
+                <input
+                  id="forgot-email"
+                  className="auth-input"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={forgotEmail}
+                  onChange={e => { setForgotEmail(e.target.value); clearMessages(); }}
+                  disabled={isLoading}
+                  required
+                  style={{ paddingRight: 18 }}
+                />
+              </div>
+
+              <button className="auth-btn auth-btn-primary" type="submit" disabled={isLoading || !forgotEmail} style={{ marginBottom: 16 }}>
+                {isLoading ? <><Spinner />Sending…</> : <>📧 Send Reset Code</>}
+              </button>
+
+              <button
+                type="button"
+                className="auth-btn"
+                style={{ background: "#f1f5f9", color: "#475569" }}
+                onClick={() => { setView(VIEW.RESET); clearMessages(); }}
+                disabled={isLoading}
+              >
+                I already have a code
+              </button>
+
+              <div className="divider">or</div>
+              <div style={{ textAlign: "center", fontSize: "0.9rem", color: "#64748b" }}>
+                Remember it?{" "}
+                <button type="button" className="auth-link" onClick={() => { setView(VIEW.LOGIN); clearMessages(); }}>
+                  Back to sign in
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* ════════════════════ RESET PASSWORD FORM ════════════════════ */}
+          {view === VIEW.RESET && (
+            <form onSubmit={handleResetPassword} noValidate>
+              {/* OTP */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={labelStyle}>Reset Code (6 digits)</label>
+                <input
+                  id="reset-otp"
+                  className="auth-input"
+                  type="text"
+                  placeholder="000000"
+                  value={resetOtp}
+                  maxLength={6}
+                  onChange={e => { setResetOtp(e.target.value.replace(/\D/g,"").slice(0,6)); clearMessages(); }}
+                  disabled={isLoading}
+                  style={{ textAlign: "center", fontSize: "1.6rem", letterSpacing: "6px", fontWeight: 700 }}
+                  required
+                />
+              </div>
+
+              {/* New password */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={labelStyle}>New Password</label>
+                <div className="input-wrapper">
+                  <input
+                    id="reset-new-password"
+                    className="auth-input"
+                    type={showNewPass ? "text" : "password"}
+                    placeholder="Min. 8 characters"
+                    value={newPassword}
+                    onChange={e => { setNewPassword(e.target.value); clearMessages(); }}
+                    disabled={isLoading}
+                    required
+                  />
+                  <button type="button" className="eye-btn" onClick={() => setShowNewPass(p => !p)} tabIndex={-1}>
+                    {showNewPass ? "🙈" : "👁️"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirm */}
+              <div style={{ marginBottom: 8 }}>
+                <label style={labelStyle}>Confirm Password</label>
+                <div className="input-wrapper">
+                  <input
+                    id="reset-confirm-password"
+                    className={`auth-input${confirmPassword && newPassword !== confirmPassword ? " error-border" : confirmPassword && newPassword === confirmPassword ? " success-border" : ""}`}
+                    type="password"
+                    placeholder="Repeat your password"
+                    value={confirmPassword}
+                    onChange={e => { setConfirmPassword(e.target.value); clearMessages(); }}
+                    disabled={isLoading}
+                    required
+                  />
+                </div>
+                {confirmPassword && newPassword !== confirmPassword && (
+                  <p style={{ color: "#ef4444", fontSize: "0.82rem", marginTop: 4 }}>❌ Passwords don't match</p>
+                )}
+              </div>
+
+              <div style={{ marginBottom: 24 }} />
+
+              <button
+                className="auth-btn auth-btn-primary"
+                type="submit"
+                disabled={isLoading || resetOtp.length < 6 || !newPassword || newPassword !== confirmPassword}
+              >
+                {isLoading ? <><Spinner />Resetting…</> : <>🔑 Reset Password</>}
+              </button>
+
+              <div className="divider">or</div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", fontSize: "0.9rem", color: "#64748b" }}>
+                <button type="button" className="auth-link"
+                  onClick={() => { setView(VIEW.FORGOT); clearMessages(); }}>
+                  Resend code
+                </button>
+                <span>·</span>
+                <button type="button" className="auth-link"
+                  onClick={() => { setView(VIEW.LOGIN); clearMessages(); }}>
+                  Back to sign in
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
-    </div>
     </>
   );
 };
 
-const styles = {
-  container: {
-    minHeight: "100vh",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 50%, #667eea 100%)",
-    padding: "20px",
-    fontFamily: "'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-    position: "relative",
-  },
-  card: {
-    padding: "50px",
-    borderRadius: "24px",
-    boxShadow: "0 25px 50px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.1)",
-    width: "100%",
-    maxWidth: "480px",
-    textAlign: "center",
-    position: "relative",
-    zIndex: 10,
-  },
-  header: {
-    marginBottom: "40px",
-  },
-  logoContainer: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    marginBottom: "20px",
-  },
-  logoIcon: {
-    fontSize: "3.5rem",
-    marginBottom: "10px",
-    filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.1))",
-  },
-  title: {
-    color: "#1e293b",
-    fontSize: "2.2rem",
-    fontWeight: "700",
-    margin: 0,
-    background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-    backgroundClip: "text",
-  },
-  subtitle: {
-    color: "#64748b",
-    fontSize: "1rem",
-    margin: "15px 0",
-    lineHeight: "1.5",
-    fontWeight: "400",
-  },
-  welcomeBadge: {
-    display: "inline-block",
-    marginTop: "15px",
-  },
-  badgeText: {
-    background: "linear-gradient(135deg, #f0f9ff, #e0f2fe)",
-    color: "#0369a1",
-    padding: "8px 16px",
-    borderRadius: "20px",
-    fontSize: "0.85rem",
-    fontWeight: "500",
-    border: "1px solid #bae6fd",
-  },
-  meetingBadge: {
-    display: "inline-block",
-    marginTop: "15px",
-  },
-  meetingBadgeText: {
-    background: "linear-gradient(135deg, #fef3c7, #fde68a)",
-    color: "#92400e",
-    padding: "8px 16px",
-    borderRadius: "20px",
-    fontSize: "0.85rem",
-    fontWeight: "500",
-    border: "1px solid #fcd34d",
-  },
-  meetingInfo: {
-    marginTop: "20px",
-    padding: "15px",
-    background: "rgba(59, 130, 246, 0.05)",
-    borderRadius: "12px",
-    border: "1px solid rgba(59, 130, 246, 0.1)",
-  },
-  meetingTitle: {
-    color: "#1e40af",
-    fontSize: "0.95rem",
-    fontWeight: "600",
-    margin: "0 0 8px 0",
-  },
-  meetingHost: {
-    color: "#64748b",
-    fontSize: "0.85rem",
-    fontWeight: "400",
-    margin: 0,
-  },
-  errorContainer: {
-    background: "linear-gradient(135deg, #fef2f2, #fee2e2)",
-    border: "1px solid #fca5a5",
-    borderRadius: "12px",
-    padding: "16px",
-    marginBottom: "24px",
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    boxShadow: "0 4px 6px rgba(239, 68, 68, 0.1)",
-  },
-  errorIcon: {
-    fontSize: "1.3rem",
-    filter: "drop-shadow(0 2px 4px rgba(239, 68, 68, 0.3))",
-  },
-  errorText: {
-    color: "#dc2626",
-    fontSize: "0.95rem",
-    fontWeight: "500",
-    lineHeight: "1.4",
-  },
-  inputContainer: {
-    marginBottom: "24px",
-    textAlign: "left",
-  },
-  label: {
-    display: "block",
-    color: "#374151",
-    fontSize: "0.95rem",
-    fontWeight: "600",
-    marginBottom: "8px",
-    letterSpacing: "0.025em",
-  },
-  input: {
-    width: "100%",
-    padding: "16px 20px",
-    borderRadius: "14px",
-    border: "2px solid #e2e8f0",
-    fontSize: "1rem",
-    outline: "none",
-    boxSizing: "border-box",
-    background: "rgba(255, 255, 255, 0.8)",
-    fontWeight: "400",
-  },
-  optionsContainer: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "30px",
-  },
-  checkboxContainer: {
-    display: "flex",
-    alignItems: "center",
-    cursor: "pointer",
-    fontSize: "0.95rem",
-  },
-  checkbox: {
-    marginRight: "8px",
-    width: "16px",
-    height: "16px",
-    cursor: "pointer",
-  },
-  checkboxLabel: {
-    color: "#374151",
-    fontSize: "0.95rem",
-    fontWeight: "500",
-    cursor: "pointer",
-  },
-  forgotPassword: {
-    color: "#3b82f6",
-    fontSize: "0.95rem",
-    cursor: "pointer",
-    textDecoration: "none",
-    fontWeight: "500",
-  },
-  button: {
-    width: "100%",
-    padding: "16px 24px",
-    background: "linear-gradient(135deg, #3b82f6, #1d4ed8)",
-    color: "#fff",
-    fontWeight: "600",
-    border: "none",
-    borderRadius: "14px",
-    fontSize: "1.05rem",
-    cursor: "pointer",
-    marginBottom: "24px",
-    boxShadow: "0 4px 14px rgba(59, 130, 246, 0.3)",
-    letterSpacing: "0.025em",
-  },
-  loadingContainer: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "12px",
-  },
-  spinner: {
-    width: "18px",
-    height: "18px",
-    border: "2px solid rgba(255,255,255,0.3)",
-    borderTop: "2px solid #fff",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-  buttonContent: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "10px",
-  },
-  divider: {
-    position: "relative",
-    textAlign: "center",
-    margin: "30px 0",
-  },
-  dividerText: {
-    background: "rgba(255, 255, 255, 0.9)",
-    color: "#64748b",
-    fontSize: "0.9rem",
-    padding: "0 20px",
-    position: "relative",
-    zIndex: 1,
-    fontWeight: "500",
-  },
-  signupContainer: {
-    marginBottom: "30px",
-  },
-  signupText: {
-    color: "#64748b",
-    fontSize: "1rem",
-    fontWeight: "400",
-  },
-  signupLink: {
-    color: "#3b82f6",
-    fontWeight: "600",
-    cursor: "pointer",
-    textDecoration: "none",
-    fontSize: "1rem",
-  },
-  features: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: "20px",
-    marginTop: "30px",
-    paddingTop: "25px",
-    borderTop: "1px solid rgba(148, 163, 184, 0.2)",
-  },
-  feature: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "8px",
-    padding: "12px 8px",
-    borderRadius: "12px",
-    background: "rgba(255, 255, 255, 0.5)",
-    border: "1px solid rgba(255, 255, 255, 0.3)",
-    position: "relative",
-  },
-  featureIcon: {
-    fontSize: "1.5rem",
-    filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.1))",
-  },
-  featureText: {
-    fontSize: "0.8rem",
-    color: "#475569",
-    fontWeight: "500",
-    textAlign: "center",
-    lineHeight: "1.2",
-  },
-  featureBadge: {
-    position: "absolute",
-    top: "-8px",
-    right: "-8px",
-    background: "linear-gradient(135deg, #f59e0b, #d97706)",
-    color: "#fff",
-    fontSize: "0.65rem",
-    fontWeight: "600",
-    padding: "2px 6px",
-    borderRadius: "6px",
-    boxShadow: "0 2px 4px rgba(245, 158, 11, 0.3)",
-  },
+/* ─── Shared helpers ───────────────────────────────────────────── */
+const Spinner = () => (
+  <span style={{ width: 16, height: 16, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} />
+);
+
+const labelStyle = {
+  display: "block",
+  color: "#374151",
+  fontSize: "0.9rem",
+  fontWeight: 600,
+  marginBottom: 8,
 };
 
 export default LoginPage;
+export { AUTH_STYLES };

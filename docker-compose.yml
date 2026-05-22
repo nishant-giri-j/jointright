@@ -8,7 +8,7 @@ services:
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-JR_Mongo_2024_SecurePass!}
       MONGO_INITDB_DATABASE: jointright_prod
     ports:
       - "27017:27017"
@@ -28,11 +28,11 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5000
-      MONGODB_URI: mongodb://admin:password123@mongodb:27017/jointright_prod?authSource=admin
-      JWT_SECRET: your_super_secure_jwt_secret_key_change_in_production
+      MONGODB_URI: mongodb://admin:${MONGO_PASSWORD:-JR_Mongo_2024_SecurePass!}@mongodb:27017/jointright_prod?authSource=admin
+      JWT_SECRET: ${JWT_SECRET:-JR_JWT_ChangeThis_In_Production_2024!xK9mP3qR7vN2wL6}
       JWT_EXPIRE: 24h
-      FRONTEND_URL: http://localhost:3000
-      FRONTEND_URL_ALT: http://localhost:3001
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      FRONTEND_URL_ALT: ${FRONTEND_URL_ALT:-http://localhost:3000}
       MAX_FILE_SIZE: 50mb
       UPLOAD_PATH: ./uploads
       RECORDING_PATH: ./recordings

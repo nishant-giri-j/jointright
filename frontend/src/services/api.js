@@ -1,12 +1,14 @@
 import axios from 'axios';
 
-// Create axios instance with base configuration
+// Create axios instance
+// In Docker/production: REACT_APP_API_URL is empty string, nginx proxies /api/* to backend
+// In development:       REACT_APP_API_URL=http://localhost:5000
+const BASE = process.env.REACT_APP_API_URL ?? 'http://localhost:5000';
+
 const api = axios.create({
-  baseURL: (process.env.REACT_APP_API_URL || 'http://localhost:5000') + '/api',
-  timeout: 30000, // 30 seconds timeout
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  baseURL: BASE + '/api',
+  timeout: 30000,
+  headers: { 'Content-Type': 'application/json' },
 });
 
 // Request interceptor to add auth token

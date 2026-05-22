@@ -1,0 +1,61 @@
+# =========================
+# Environment / Secrets
+# =========================
+backend/.env
+backend/.env.*
+!backend/.env.production
+# Keep .env.production committed but WITHOUT real secrets
+# Use .env.local for real production secrets - never commit it
+.env.local
+.env.*.local
+*.local
+
+# =========================
+# Node Modules
+# =========================
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# =========================
+# Build Outputs
+# =========================
+frontend/build/
+
+# =========================
+# Logs
+# =========================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+backend/logs/
+logs/
+
+# =========================
+# Upload / Recording Data
+# =========================
+backend/uploads/*
+backend/recordings/*
+!backend/uploads/.gitkeep
+!backend/recordings/.gitkeep
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# IDE / Editor
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# Docker
+# =========================
+.docker/

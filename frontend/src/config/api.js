@@ -1,6 +1,8 @@
 // API Configuration
+// In Docker/production: REACT_APP_API_URL is empty, nginx proxies /api/* to backend
+// In development: REACT_APP_API_URL=http://localhost:5000
 const API_CONFIG = {
-  BASE_URL: process.env.REACT_APP_API_URL || 'http://localhost:5000',
+  BASE_URL: process.env.REACT_APP_API_URL || '',
   ENDPOINTS: {
     // Auth endpoints
     LOGIN: '/api/login',

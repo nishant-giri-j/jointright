@@ -14,14 +14,12 @@ import About from "./pages/About";
 import Contact from "./pages/Contact";
 import JoinMeeting from "./pages/JoinMeeting";
 import Profile from "./pages/Profile";
-import MeetingAuthWrapper from "./components/MeetingAuthWrapper";
 
 // Component to handle root route redirection
 const RootRedirect = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
   
-  console.log('🔄 RootRedirect - Auth state:', { isAuthenticated, isLoading, user });
-  
+
   if (isLoading) {
     return (
       <div style={{

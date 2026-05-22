@@ -14,75 +14,56 @@ const isValidEmail = (email) => {
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME = 30 * 60 * 1000; // 30 minutes
 
-// Direct login with enhanced security
+// ─── DIRECT LOGIN ────────────────────────────────────────────────────────────
 export const directLogin = async (req, res) => {
   try {
     const { email, password, rememberMe = false } = req.body;
-    const clientIp = req.ip || req.connection.remoteAddress;
+    const clientIp = req.ip || req.connection?.remoteAddress;
 
     // Input validation
     if (!email || !password) {
-      logger.warn(`Login attempt with missing credentials from IP: ${clientIp}`);
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "Email and password are required",
         code: "MISSING_CREDENTIALS"
       });
     }
 
-    // Normalize and validate email
     const normalizedEmail = email.toLowerCase().trim();
     if (!isValidEmail(normalizedEmail)) {
-      logger.warn(`Login attempt with invalid email format: ${email} from IP: ${clientIp}`);
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "Please enter a valid email address",
         code: "INVALID_EMAIL_FORMAT"
       });
     }
 
-    // Find user
     const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
-      logger.warn(`Login attempt with non-existent email: ${normalizedEmail} from IP: ${clientIp}`);
-      return res.status(404).json({ 
-        error: "User not found",
-        message: "No account found with this email address",
+      return res.status(404).json({
+        error: "No account found with this email address",
         code: "USER_NOT_FOUND"
       });
     }
 
-    // Check if user account is active
     if (!user.isActive) {
-      logger.warn(`Login attempt to deactivated account: ${normalizedEmail} from IP: ${clientIp}`);
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: "Account has been deactivated. Please contact support.",
         code: "ACCOUNT_DEACTIVATED"
       });
     }
 
-    // Check if email is verified
-    if (!user.emailVerified) {
-      logger.warn(`Login attempt to unverified account: ${normalizedEmail} from IP: ${clientIp}`);
-      return res.status(403).json({ 
-        error: "Please verify your email address before logging in",
-        code: "EMAIL_NOT_VERIFIED"
-      });
-    }
-
     // Check if account is locked
     if (user.lockUntil && user.lockUntil > Date.now()) {
-      const remainingTime = Math.ceil((user.lockUntil - Date.now()) / 60000); // minutes
+      const remainingTime = Math.ceil((user.lockUntil - Date.now()) / 60000);
       logger.warn(`Login attempt to locked account: ${normalizedEmail} from IP: ${clientIp}`);
-      return res.status(423).json({ 
+      return res.status(423).json({
         error: `Account is temporarily locked. Try again in ${remainingTime} minutes.`,
         code: "ACCOUNT_LOCKED",
         lockTime: remainingTime
       });
     }
 
-    // Check if user has a password (some users might only have been created for OTP)
     if (!user.password) {
-      logger.warn(`Login attempt to account without password: ${normalizedEmail} from IP: ${clientIp}`);
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "Please complete your account setup first",
         code: "INCOMPLETE_ACCOUNT"
       });
@@ -91,55 +72,45 @@ export const directLogin = async (req, res) => {
     // Verify password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      // Increment login attempts
-      const updates = {
-        loginAttempts: user.loginAttempts + 1,
-        updatedAt: new Date()
-      };
-      
-      // Lock account if too many failed attempts
-      if (user.loginAttempts + 1 >= MAX_LOGIN_ATTEMPTS) {
+      const newAttempts = (user.loginAttempts || 0) + 1;
+      const updates = { loginAttempts: newAttempts, updatedAt: new Date() };
+
+      if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
         updates.lockUntil = Date.now() + LOCK_TIME;
-        logger.warn(`Account locked due to too many failed attempts: ${normalizedEmail} from IP: ${clientIp}`);
+        logger.warn(`Account locked: ${normalizedEmail}`);
       }
-      
+
       await User.findByIdAndUpdate(user._id, updates);
-      
-      logger.warn(`Failed login attempt ${user.loginAttempts + 1}/${MAX_LOGIN_ATTEMPTS} for: ${normalizedEmail} from IP: ${clientIp}`);
-      
+
       if (updates.lockUntil) {
-        return res.status(423).json({ 
-          error: "Too many failed login attempts. Account has been temporarily locked.",
+        return res.status(423).json({
+          error: "Too many failed attempts. Account temporarily locked for 30 minutes.",
           code: "ACCOUNT_LOCKED_ATTEMPTS"
         });
       }
-      
-      const remainingAttempts = MAX_LOGIN_ATTEMPTS - (user.loginAttempts + 1);
-      return res.status(401).json({ 
-        error: "Wrong email or password",
-        message: "The password you entered is incorrect",
+
+      const remainingAttempts = MAX_LOGIN_ATTEMPTS - newAttempts;
+      return res.status(401).json({
+        error: "Incorrect password",
         code: "INVALID_PASSWORD",
         remainingAttempts: remainingAttempts > 0 ? remainingAttempts : 0
       });
     }
 
-    // Successful login - reset login attempts and update last login
-    const updateData = {
+    // Successful login
+    await User.findByIdAndUpdate(user._id, {
       loginAttempts: 0,
       lockUntil: null,
       lastLogin: new Date(),
       updatedAt: new Date()
-    };
-    
-    await User.findByIdAndUpdate(user._id, updateData);
+    });
 
-    // Generate JWT token with appropriate expiry
     const tokenExpiry = rememberMe ? '30d' : '24h';
     const token = generateToken(user._id, user.email, tokenExpiry);
 
-    logger.info(`Successful login for: ${normalizedEmail} from IP: ${clientIp}`);
+    logger.info(`Successful login: ${normalizedEmail}`);
 
-    res.json({
+    return res.json({
       success: true,
       message: "Login successful",
       user: {
@@ -148,131 +119,230 @@ export const directLogin = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
-        lastLogin: updateData.lastLogin,
+        lastLogin: new Date(),
         preferences: user.preferences
       },
       token,
       expiresIn: tokenExpiry
     });
   } catch (error) {
-    logger.error('Direct login error:', { error: error.message, stack: error.stack });
-    res.status(500).json({ 
+    logger.error("Direct login error:", error);
+    return res.status(500).json({
       error: "Login failed. Please try again.",
       code: "LOGIN_FAILED"
     });
   }
 };
 
+// ─── FORGOT PASSWORD ──────────────────────────────────────────────────────────
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required", code: "EMAIL_REQUIRED" });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ error: "Please enter a valid email address", code: "INVALID_EMAIL_FORMAT" });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail });
+
+    // Always return success to prevent email enumeration attacks
+    if (!user || !user.isActive) {
+      return res.json({
+        success: true,
+        message: "If an account with this email exists, you will receive a reset code."
+      });
+    }
+
+    // Generate 6-digit reset OTP
+    const resetOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const resetExpires = Date.now() + 15 * 60 * 1000; // 15 minutes
+
+    await User.findByIdAndUpdate(user._id, {
+      otp: resetOtp,
+      otpExpires: new Date(resetExpires),
+      updatedAt: new Date()
+    });
+
+    try {
+      await sendEmail(
+        normalizedEmail,
+        "JointRight - Password Reset Code",
+        `
+        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8fafc; padding: 40px 20px;">
+          <div style="background: white; border-radius: 16px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="margin: 0; font-size: 28px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">🤝 JointRight</h1>
+            </div>
+            <h2 style="color: #1e293b; margin-bottom: 8px;">Reset Your Password</h2>
+            <p style="color: #64748b; margin-bottom: 24px;">We received a request to reset your password. Use the code below:</p>
+            <div style="background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border: 1px solid #bae6fd; padding: 24px; border-radius: 12px; text-align: center; margin: 24px 0;">
+              <p style="margin: 0 0 8px; color: #0369a1; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Your Reset Code</p>
+              <h1 style="color: #1e40af; font-size: 42px; letter-spacing: 8px; margin: 0; font-weight: 700;">${resetOtp}</h1>
+            </div>
+            <p style="color: #64748b; font-size: 14px;">⏰ This code expires in <strong>15 minutes</strong>.</p>
+            <p style="color: #64748b; font-size: 14px;">If you did not request this, please ignore this email — your password will not be changed.</p>
+          </div>
+        </div>
+        `
+      );
+    } catch (emailError) {
+      logger.error("Password reset email failed:", emailError);
+      // In dev, return the OTP for testing
+      if (process.env.NODE_ENV === 'development') {
+        return res.json({ success: true, message: "Reset code generated (email unavailable in dev)", developmentOtp: resetOtp });
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: "If an account with this email exists, you will receive a reset code."
+    });
+  } catch (error) {
+    logger.error("Forgot password error:", error);
+    return res.status(500).json({ error: "Failed to process request", code: "FORGOT_PASSWORD_FAILED" });
+  }
+};
+
+// ─── RESET PASSWORD ───────────────────────────────────────────────────────────
+export const resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword, confirmPassword } = req.body;
+
+    if (!email || !otp || !newPassword || !confirmPassword) {
+      return res.status(400).json({ error: "All fields are required", code: "MISSING_FIELDS" });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ error: "Passwords do not match", code: "PASSWORDS_MISMATCH" });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters", code: "WEAK_PASSWORD" });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      return res.status(400).json({ error: "Invalid or expired reset code", code: "INVALID_RESET_CODE" });
+    }
+
+    if (!user.otp || user.otp !== otp.trim()) {
+      return res.status(400).json({ error: "Invalid reset code", code: "INVALID_OTP" });
+    }
+
+    if (!user.otpExpires || new Date(user.otpExpires) < new Date()) {
+      return res.status(400).json({ error: "Reset code has expired. Please request a new one.", code: "EXPIRED_OTP" });
+    }
+
+    // Hash new password and update
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    await User.findByIdAndUpdate(user._id, {
+      password: hashedPassword,
+      otp: null,
+      otpExpires: null,
+      loginAttempts: 0,
+      lockUntil: null,
+      updatedAt: new Date()
+    });
+
+    logger.info(`Password reset successful: ${normalizedEmail}`);
+
+    return res.json({ success: true, message: "Password reset successfully. You can now log in." });
+  } catch (error) {
+    logger.error("Reset password error:", error);
+    return res.status(500).json({ error: "Failed to reset password", code: "RESET_PASSWORD_FAILED" });
+  }
+};
+
+// ─── REQUEST LOGIN OTP ────────────────────────────────────────────────────────
 export const requestLoginOtp = async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ 
-        error: "Email and password are required",
-        code: "MISSING_CREDENTIALS"
-      });
+      return res.status(400).json({ error: "Email and password are required", code: "MISSING_CREDENTIALS" });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
-      return res.status(404).json({ 
-        error: "User not found",
-        message: "No account found with this email address",
-        code: "USER_NOT_FOUND"
-      });
+      return res.status(404).json({ error: "No account found with this email", code: "USER_NOT_FOUND" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ 
-        error: "Wrong email or password",
-        message: "The password you entered is incorrect",
-        code: "INVALID_PASSWORD"
-      });
+      return res.status(401).json({ error: "Incorrect password", code: "INVALID_PASSWORD" });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     user.otp = otp;
-    user.otpExpires = Date.now() + 5 * 60 * 1000; // 5 minutes
+    user.otpExpires = new Date(Date.now() + 5 * 60 * 1000);
     await user.save();
 
-    // Try to send email, but don't fail if email service is unavailable
     try {
-      const emailSubject = "JointRight - Login Verification Code";
-      const emailBody = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #3b82f6;">Login Verification Required 🔐</h2>
-          <p>Here's your one-time login verification code:</p>
-          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
-            <h1 style="color: #1e293b; font-size: 32px; letter-spacing: 4px; margin: 0;">${otp}</h1>
+      await sendEmail(
+        email,
+        "JointRight - Login Verification Code",
+        `
+        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8fafc; padding: 40px 20px;">
+          <div style="background: white; border-radius: 16px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="margin: 0; font-size: 28px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">🤝 JointRight</h1>
+            </div>
+            <h2 style="color: #1e293b;">Login Verification 🔐</h2>
+            <p style="color: #64748b;">Your one-time login code:</p>
+            <div style="background: #f3f4f6; padding: 20px; border-radius: 12px; text-align: center; margin: 20px 0;">
+              <h1 style="color: #1e293b; font-size: 36px; letter-spacing: 6px; margin: 0;">${otp}</h1>
+            </div>
+            <p style="color: #64748b; font-size: 14px;">Expires in 5 minutes.</p>
           </div>
-          <p style="color: #64748b;">This code will expire in 5 minutes for security reasons.</p>
-          <p style="color: #64748b;">If you didn't request this code, please secure your account immediately.</p>
         </div>
-      `;
-      await sendEmail(email, emailSubject, emailBody);
+        `
+      );
     } catch (emailError) {
-      console.error('Email sending failed:', emailError);
-      // For development, you might want to return the OTP in response
-      // Remove this in production!
       if (process.env.NODE_ENV === 'development') {
-        return res.json({ 
-          message: "OTP generated (email service unavailable)",
-          otp // Only for development!
-        });
+        return res.json({ message: "OTP generated (email unavailable)", otp });
       }
     }
 
-    res.json({ 
-      success: true,
-      message: "OTP sent to your email"
-    });
+    return res.json({ success: true, message: "Verification code sent to your email" });
   } catch (error) {
-    console.error('OTP request error:', error);
-    res.status(500).json({ 
-      error: "Failed to send OTP",
-      code: "OTP_REQUEST_FAILED"
-    });
+    logger.error("OTP request error:", error);
+    return res.status(500).json({ error: "Failed to send OTP", code: "OTP_REQUEST_FAILED" });
   }
 };
 
+// ─── VERIFY LOGIN OTP ─────────────────────────────────────────────────────────
 export const verifyLoginOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
     if (!email || !otp) {
-      return res.status(400).json({ 
-        error: "Email and OTP are required",
-        code: "MISSING_OTP_DATA"
-      });
+      return res.status(400).json({ error: "Email and OTP are required", code: "MISSING_OTP_DATA" });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
-      return res.status(401).json({ 
-        error: "User not found",
-        code: "USER_NOT_FOUND"
-      });
+      return res.status(401).json({ error: "User not found", code: "USER_NOT_FOUND" });
     }
 
-    if (user.otp !== otp || user.otpExpires < Date.now()) {
-      return res.status(401).json({ 
-        error: "Invalid or expired OTP",
-        code: "INVALID_OTP"
-      });
+    if (!user.otp || user.otp !== otp || !user.otpExpires || new Date(user.otpExpires) < new Date()) {
+      return res.status(401).json({ error: "Invalid or expired OTP", code: "INVALID_OTP" });
     }
 
-    // Clear OTP and update last login
     user.otp = null;
     user.otpExpires = null;
     user.lastLogin = new Date();
     await user.save();
 
-    // Generate JWT token
     const token = generateToken(user._id, user.email);
 
-    res.json({
+    return res.json({
       success: true,
       message: "Login successful",
       user: {
@@ -287,51 +357,27 @@ export const verifyLoginOtp = async (req, res) => {
       token
     });
   } catch (error) {
-    console.error('OTP verification error:', error);
-    res.status(500).json({ 
-      error: "OTP verification failed",
-      code: "OTP_VERIFICATION_FAILED"
-    });
+    logger.error("OTP verification error:", error);
+    return res.status(500).json({ error: "OTP verification failed", code: "OTP_VERIFICATION_FAILED" });
   }
 };
 
-// Logout endpoint to blacklist token (optional)
+// ─── LOGOUT ───────────────────────────────────────────────────────────────────
 export const logout = async (req, res) => {
   try {
-    // In a production app, you might want to blacklist the token
-    // For now, we'll just return success
-    res.json({
-      success: true,
-      message: "Logged out successfully"
-    });
+    return res.json({ success: true, message: "Logged out successfully" });
   } catch (error) {
-    console.error('Logout error:', error);
-    res.status(500).json({ 
-      error: "Logout failed",
-      code: "LOGOUT_FAILED"
-    });
+    return res.status(500).json({ error: "Logout failed", code: "LOGOUT_FAILED" });
   }
 };
 
-// Refresh token endpoint
+// ─── REFRESH TOKEN ────────────────────────────────────────────────────────────
 export const refreshToken = async (req, res) => {
   try {
-    const { user } = req; // From auth middleware
-    
-    console.log('Refresh token request for user:', { id: user._id || user.id, email: user.email });
-    
+    const { user } = req;
     const newToken = generateToken(user._id || user.id, user.email);
-    
-    res.json({
-      success: true,
-      token: newToken
-    });
+    return res.json({ success: true, token: newToken });
   } catch (error) {
-    console.error('Token refresh error:', error);
-    res.status(500).json({ 
-      error: "Token refresh failed",
-      code: "TOKEN_REFRESH_FAILED"
-    });
+    return res.status(500).json({ error: "Token refresh failed", code: "TOKEN_REFRESH_FAILED" });
   }
 };
-

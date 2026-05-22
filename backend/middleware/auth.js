@@ -3,9 +3,6 @@ import User from '../models/user.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
 
-// Log the JWT_SECRET for debugging (remove in production)
-console.log('🔐 Auth JWT_SECRET:', JWT_SECRET.substring(0, 20) + '...');
-
 // Generate JWT token
 export const generateToken = (userId, email, expiresIn = '24h') => {
   return jwt.sign(
@@ -43,16 +40,16 @@ export const authenticateToken = async (req, res, next) => {
       });
     }
 
-    // Add user info to request
+    // Add user info to request — include role so requireRole() works
     req.user = {
-      id: decoded.userId,
-      _id: decoded.userId,
-      email: decoded.email
+      id:    decoded.userId,
+      _id:   decoded.userId,
+      email: decoded.email,
+      role:  user.role,
     };
     
     next();
   } catch (error) {
-    console.error('Token verification error:', error);
     
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ 

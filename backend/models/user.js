@@ -38,13 +38,13 @@ const userSchema = new mongoose.Schema({
 
 // Password hashing middleware
 userSchema.pre('save', async function(next) {
-  // Only hash the password if it has been modified (or is new)
-  if (!this.isModified('password')) return next();
-  
+  // Skip if password not modified
+  if (!this.isModified('password') || !this.password) return next();
+  // Skip if already a bcrypt hash (starts with $2a$ or $2b$)
+  if (this.password.startsWith('$2a$') || this.password.startsWith('$2b$')) return next();
+
   try {
-    // Hash password with cost of 12
-    const hashedPassword = await bcrypt.hash(this.password, 12);
-    this.password = hashedPassword;
+    this.password = await bcrypt.hash(this.password, 12);
     next();
   } catch (error) {
     next(error);

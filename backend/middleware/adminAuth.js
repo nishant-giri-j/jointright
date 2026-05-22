@@ -5,9 +5,6 @@ import logger from '../utils/logger.js';
 // CRITICAL: Use the EXACT same JWT_SECRET as auth.js
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
 
-// Log the JWT_SECRET for debugging (remove in production)
-console.log('🔐 AdminAuth JWT_SECRET:', JWT_SECRET.substring(0, 20) + '...');
-
 // Middleware to verify admin authentication
 export const requireAdmin = async (req, res, next) => {
   try {

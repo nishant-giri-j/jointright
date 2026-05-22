@@ -4,13 +4,13 @@ export const sendEmail = async (to, subject, content, isHtml = true) => {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-      user: process.env.EMAIL,   // your Gmail
-      pass: process.env.PASSWORD // app password
+      user: process.env.GMAIL_USER || process.env.EMAIL,
+      pass: process.env.GMAIL_APP_PASSWORD || process.env.PASSWORD
     },
   });
 
   const mailOptions = {
-    from: process.env.EMAIL,
+    from: `"JointRight" <${process.env.GMAIL_USER || process.env.EMAIL}>`,
     to,
     subject,
   };
