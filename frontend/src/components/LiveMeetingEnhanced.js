@@ -116,6 +116,14 @@ const EnhancedVideoTile = React.memo(({
         setIsLoading(false);
       };
 
+      // Fix: Check if stream is already available before listening to the event
+      // simple-peer stores the stream in _remoteStreams or stream property
+      if (peer._remoteStreams && peer._remoteStreams.length > 0) {
+        handleStream(peer._remoteStreams[0]);
+      } else if (peer.stream) {
+        handleStream(peer.stream);
+      }
+
       peer.on("stream", handleStream);
       peer.on("error", handleError);
 
@@ -1077,8 +1085,11 @@ const EnhancedLiveMeeting = ({
               try {
                 const senders = peer._pc.getSenders();
                 const sender = senders.find(s => s.track && s.track.kind === 'video');
-                if (sender) {
+                if (sender && sender.replaceTrack) {
                   sender.replaceTrack(newVideoTrack);
+                } else if (peer.addTrack) {
+                  // If no video sender exists (e.g. joined with video off), add it dynamically
+                  peer.addTrack(newVideoTrack, userStream);
                 }
               } catch (peerErr) {
                 console.warn("Could not replace track for peer:", peerErr);
@@ -1288,6 +1299,9 @@ const EnhancedLiveMeeting = ({
                     sender.replaceTrack(compositeVideoTrack).catch(error => {
                       console.warn('Failed to send composite stream:', error);
                     });
+                  } else if (peer.addTrack) {
+                    // Fallback if no sender exists
+                    peer.addTrack(compositeVideoTrack, userStream);
                   }
                 } catch (error) {
                   console.warn('Error sending composite stream to peer:', error);
@@ -1311,6 +1325,8 @@ const EnhancedLiveMeeting = ({
                   sender.replaceTrack(videoTrack).catch(error => {
                     console.warn('Fallback: Failed to replace video track:', error);
                   });
+                } else if (peer.addTrack) {
+                  peer.addTrack(videoTrack, userStream);
                 }
               } catch (fallbackError) {
                 console.warn('Fallback also failed:', fallbackError);
@@ -2035,6 +2051,24 @@ const EnhancedLiveMeeting = ({
       fetchCyberScores(userIds);
     }
   }, [activePeers, fetchCyberScores]);
+
+  // Fix: Ensure local video is attached when the video element mounts or state changes
+  useEffect(() => {
+    if (userVideo.current && userStream) {
+      if (userVideo.current.srcObject !== userStream) {
+        userVideo.current.srcObject = userStream;
+      }
+    }
+  }, [meetingState, userStream, isVideoOn, viewMode, isScreenSharing]);
+
+  // Fix: Ensure screen share video is attached when it mounts
+  useEffect(() => {
+    if (screenShareVideo.current && screenStream) {
+      if (screenShareVideo.current.srcObject !== screenStream) {
+        screenShareVideo.current.srcObject = screenStream;
+      }
+    }
+  }, [meetingState, screenStream, isScreenSharing, viewMode]);
 
   // Enhanced keyboard shortcuts
   useEffect(() => {
